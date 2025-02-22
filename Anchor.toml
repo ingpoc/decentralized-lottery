@@ -5,7 +5,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-decentralized_lottery = "7LP4CFrnhapCncyakeRYxTRVidiRFhaiYCh5AoeM5Mc7"
+decentralized_lottery = "6SGr6BZpxWkqN1qwUdrZZ4rmDKnX3aA8AhF7j6tVvhzB"
 
 [registry]
 url = "https://api.apr.dev"

@@ -3,10 +3,11 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::Mint;
 
 use instructions::create_lottery::*;
+use instructions::buy_ticket::*;
 use state::lottery::*;
 use state::treasury::GlobalConfig;
 
-declare_id!("7LP4CFrnhapCncyakeRYxTRVidiRFhaiYCh5AoeM5Mc7");
+declare_id!("6SGr6BZpxWkqN1qwUdrZZ4rmDKnX3aA8AhF7j6tVvhzB");
 
 pub mod instructions;
 pub mod state;
@@ -54,5 +55,9 @@ pub mod decentralized_lottery {
         prize_pool: u64,
     ) -> Result<()> {
         instructions::create_lottery::handler(ctx, lottery_type_enum, ticket_price, draw_time, prize_pool)
+    }
+
+    pub fn buy_ticket(ctx: Context<BuyTicket>, number_of_tickets: u64) -> Result<()> {
+        instructions::buy_ticket::handler(ctx, number_of_tickets)
     }
 }
