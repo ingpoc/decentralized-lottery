@@ -7,7 +7,7 @@ use instructions::buy_ticket::*;
 use state::lottery::*;
 use state::treasury::GlobalConfig;
 
-declare_id!("6SGr6BZpxWkqN1qwUdrZZ4rmDKnX3aA8AhF7j6tVvhzB");
+declare_id!("7MTSfGTiXNH4ZGztQPdvzpkKivUEUzQhJvsccJFDEMyt");
 
 pub mod instructions;
 pub mod state;
