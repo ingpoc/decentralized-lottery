@@ -32,6 +32,10 @@ pub struct TransitionState<'info> {
     )]
     pub lottery_token_account: Account<'info, TokenAccount>,
 
+    /// Optional Oracle/VRF account for randomness
+    /// Only required when transitioning to Drawing state
+    pub oracle_account: Option<AccountInfo<'info>>,
+
     #[account(mut)]
     pub admin: Signer<'info>,
 
@@ -62,6 +66,9 @@ pub fn handler(ctx: Context<TransitionState>, next_state: LotteryState) -> Resul
             if lottery_token_account.amount < lottery_account.prize_pool {
                 return Err(LotteryError::InvalidPrizePool.into());
             }
+
+            // Reset prize pool lock
+            lottery_account.is_prize_pool_locked = false;
         },
         (LotteryState::Open, LotteryState::Drawing) => {
             // Validate draw time has been reached
@@ -85,6 +92,16 @@ pub fn handler(ctx: Context<TransitionState>, next_state: LotteryState) -> Resul
                 
                 return Ok(());
             }
+
+            // Validate Oracle account is provided
+            let oracle_account = ctx.accounts.oracle_account.as_ref()
+                .ok_or(LotteryError::OraclePriceFeedError)?;
+
+            // Lock prize pool
+            lottery_account.is_prize_pool_locked = true;
+            
+            // Set Oracle for randomness
+            lottery_account.oracle_pubkey = Some(oracle_account.key());
         },
         _ => {}
     }

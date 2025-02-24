@@ -4,14 +4,14 @@
 resolution = true
 skip-lint = false
 
-[programs.localnet]
-decentralized_lottery = "7MTSfGTiXNH4ZGztQPdvzpkKivUEUzQhJvsccJFDEMyt"
+[programs.devnet]
+decentralized_lottery = "F1pffGp4n5qyNRcCnpoTH5CEfVKQEGxAxmRuRScUw4tz"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "Localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

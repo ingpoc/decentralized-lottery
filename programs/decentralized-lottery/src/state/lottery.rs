@@ -62,4 +62,6 @@ pub struct LotteryAccount {
     pub global_config: Pubkey,
     pub auto_transition: bool,    // For automatic state transitions
     pub last_ticket_id: u64,     // For tracking tickets
+    pub oracle_pubkey: Option<Pubkey>, // Oracle/VRF for randomness
+    pub is_prize_pool_locked: bool, // To lock prize pool during drawing
 }

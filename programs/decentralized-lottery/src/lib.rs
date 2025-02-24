@@ -9,7 +9,7 @@ use instructions::cancel_lottery::*;
 use state::lottery::*;
 use state::treasury::GlobalConfig;
 
-declare_id!("7MTSfGTiXNH4ZGztQPdvzpkKivUEUzQhJvsccJFDEMyt");
+declare_id!("F1pffGp4n5qyNRcCnpoTH5CEfVKQEGxAxmRuRScUw4tz");
 
 pub mod instructions;
 pub mod state;
