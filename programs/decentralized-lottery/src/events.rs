@@ -1,5 +1,6 @@
 // src/events.rs
 use anchor_lang::prelude::*;
+use crate::state::lottery::LotteryState;
 
 #[event]
 pub struct LotteryCreated {
@@ -17,4 +18,14 @@ pub struct TicketPurchased {
     pub number_of_tickets: u64,
     pub total_cost: u64,
     pub timestamp: i64,
+}
+
+#[event]
+pub struct LotteryStateChanged {
+    pub lottery_id: Pubkey,
+    pub previous_state: LotteryState,
+    pub new_state: LotteryState,
+    pub timestamp: i64,
+    pub total_tickets_sold: u64,
+    pub current_prize_pool: u64,
 }
