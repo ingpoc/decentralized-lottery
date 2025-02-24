@@ -7,9 +7,29 @@ globs: programs/**/*.toml,programs/**/*.rs, *.toml
 
 ## Core Principles
 
-- To add any dependency add using command : cargo add <dependency-name>
-- To delete any dependency delete using command : cargo remove <dependency-name>
-- Build the anchor project using command: anchor build
+### Understand the action items
+   - Understand the user request and action items from [action-items.md](mdc:docs/action-items.md)
+
+
+### Information Gathering
+1. **Search Strategy**
+   - Start with codebase search for context.
+   - Use `grep` for exact matches.
+   - Check documentation before making changes.
+   - Verify assumptions with multiple tools.
+   - **For third-party libraries, always check the official documentation and GitHub repository (README, examples, and issues) for usage examples, common pitfalls, and reported bugs.**
+
+2. **Code Understanding**
+   - Read related files completely.
+   - Check for dependencies and imports.
+   - Verify type definitions.
+   - Understand the component hierarchy.
+
+3. **Development**
+   - Systematically build one feature that makes sense and build the anchor project
+   - Make sure the anchor build completes successfully.
+   - On user confirmation mark the feature complete in [action-items.md](mdc:docs/action-items.md)
+   - Move on to implementing the next feature or action item only after successful completion of item before it.
 
 
 

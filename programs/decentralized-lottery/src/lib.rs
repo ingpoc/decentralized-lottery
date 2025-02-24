@@ -4,6 +4,8 @@ use anchor_spl::token::Mint;
 
 use instructions::create_lottery::*;
 use instructions::buy_ticket::*;
+use instructions::transition_state::*;
+use instructions::cancel_lottery::*;
 use state::lottery::*;
 use state::treasury::GlobalConfig;
 
@@ -59,5 +61,13 @@ pub mod decentralized_lottery {
 
     pub fn buy_ticket(ctx: Context<BuyTicket>, number_of_tickets: u64) -> Result<()> {
         instructions::buy_ticket::handler(ctx, number_of_tickets)
+    }
+
+    pub fn transition_state(ctx: Context<TransitionState>, next_state: LotteryState) -> Result<()> {
+        instructions::transition_state::handler(ctx, next_state)
+    }
+
+    pub fn cancel_lottery(ctx: Context<CancelLottery>) -> Result<()> {
+        instructions::cancel_lottery::handler(ctx)
     }
 }

@@ -25,6 +25,28 @@ pub enum LotteryState {
     Drawing,
     Completed,
     Expired,
+    Cancelled,
+}
+
+impl LotteryState {
+    pub fn can_transition_to(&self, next_state: &LotteryState) -> bool {
+        match self {
+            LotteryState::Created => matches!(next_state, LotteryState::Open | LotteryState::Cancelled),
+            LotteryState::Open => matches!(next_state, LotteryState::Drawing | LotteryState::Cancelled),
+            LotteryState::Drawing => matches!(next_state, LotteryState::Completed | LotteryState::Expired | LotteryState::Cancelled),
+            LotteryState::Completed => false, // Terminal state
+            LotteryState::Expired => false,   // Terminal state
+            LotteryState::Cancelled => false, // Terminal state
+        }
+    }
+
+    pub fn can_cancel(&self) -> bool {
+        matches!(self, 
+            LotteryState::Created | 
+            LotteryState::Open | 
+            LotteryState::Drawing
+        )
+    }
 }
 
 #[account]
@@ -38,4 +60,6 @@ pub struct LotteryAccount {
     pub state: LotteryState,
     pub created_by: Pubkey,
     pub global_config: Pubkey,
+    pub auto_transition: bool,    // For automatic state transitions
+    pub last_ticket_id: u64,     // For tracking tickets
 }

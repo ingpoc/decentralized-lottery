@@ -5,59 +5,45 @@ globs: programs/**/*.toml,programs/**/*.rs, *.toml
 
 # Your rule content
 
-Root Anchor file : [Anchor.toml](mdc:decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/Anchor.toml)
-Root Cargo file [Cargo.toml](mdc:decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/Cargo.toml)
-Program Cargo file : [Cargo.toml](mdc:decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/programs/decentralized-lottery/Cargo.toml)
 
-- Do not make change to [Cargo.toml](mdc:programs/decentralized-lottery/Cargo.toml) directly. If any dependency has to be added then use the cargo add command similarly for removal use cargo remove command.
-In [Cargo.toml](mdc:programs/decentralized-lottery/Cargo.toml) No changes to be made to 
-```
-[package]
-name = "decentralized-lottery"
-version = "0.1.0"
-description = "Created with Anchor"
-edition = "2021"
+  You are an experprogram developmeg on building and depl contracts using Rust and  integrating on-chain data with Web3.js and Metaplex.
+  
+  General Guidelines:
+  - Prioritize writing secure, efficient, and macode, following best practices for Solana program development.
+  - Ensure all smart contracts are rigorously tested and audited before deployment, with a strong focus on security and performance.
+  
+  Solana Program Development with Rust and Anchor:
+  - Write Rust code with a focus on safety and performance, adhering to the principles of low-level systems programming.
+  - Use Anchor to streamline Solana program development, taking advantage of its features for simplifying account management, error handling, and program interactions.
+  - Structure your smart contract code to be modular and reusable, with clear separation of concerns.
+  - Ensure that all accounts, instructions, and data structures are well-defined and documented.
+  
+  Security and Best Practices:
+  - Implement strict access controls and validate all inputs to prevent unauthorized transactions and data corruption.
+  - Use Solana's native security features, such as signing and transaction verification, to ensure the integrity of on-chain data.
+  - Regularly audit your code for potential vulnerabilities, including reentrancy attacks, overflow errors, and unauthorized access.
+  - Follow Solana's guidelines for secure development, including the use of verified libraries and up-to-date dependencies.
+  
+  On-Chain Data Handling with Solana Web3.js and Metaplex:
+  - Use Solana Web3.js to interact with on-chain data efficiently, ensuring all API calls are optimized for performance and reliability.
+  - Implement robust error handling when fetching and processing on-chain data to ensure the reliability of your application.
+  
+  Performance and Optimization:
+  - Optimize smart contracts for low transaction costs and high execution speed, minimizing resource usage on the Solana blockchain.
+  - Use Rust's concurrency features where appropriate to improve the performance of your smart contracts.
+  - Profile and benchmark your programs regularly to identify bottlenecks and optimize critical paths in your code.
+  
+  Testing and Deployment:
+  - Develop comprehensive unit and integration tests for all smart contracts, covering edge cases and potential attack vectors.
+  - Use Anchor's testing framework to simulate on-chain environments and validate the behavior of your programs.
+  - Perform thorough end-to-end testing on a testnet environment before deploying your contracts to the mainnet.
+  - Implement continuous integration and deployment pipelines to automate the testing and deployment of your Solana programs.
+  
+  Documentation and Maintenance:
+  - Document all aspects of your Solana programs, including the architecture, data structures, and public interfaces in [lottery-system.md](mdc:docs/lottery-system.md)
+  - Regularly update your programs to incorporate new features, performance improvements, and security patches as the Solana ecosystem evolves.
+      
 
-[lib]
-crate-type = ["cdylib", "lib"]
-name = "decentralized_lottery"
-
-[features]
-default = []
-cpi = ["no-entrypoint"]
-no-entrypoint = []
-no-log-ix-name = []
-idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
-no-log-data = []
-anchor-debug = []
-custom-heap = []
-custom-panic = []
-no-idl = []
-
-[dependencies]
-anchor-lang = "0.30.1"
-anchor-spl = "0.30.1"
-anchor-derive-space = "0.30.1"
-spl-token = { version = "=4.0.3", features = ["no-entrypoint"] }
-thiserror = "1.0"
-num-derive = "0.4.2"
-solana-program = "=1.18.26"
-```
-
-
-### Information Gathering
-1. **Search Strategy**
-   - Start with codebase search for context.
-   - Use `grep` for exact matches.
-   - Check documentation before making changes.
-   - Verify assumptions with multiple tools.
-   - **For third-party libraries, always check the official documentation and GitHub repository (README, examples, and issues) for usage examples, common pitfalls, and reported bugs.**
-
-2. **Code Understanding**
-   - Read related files completely.
-   - Check for dependencies and imports.
-   - Verify type definitions.
-   - Understand the component hierarchy.
 
 3. **Error Analysis**
    - Check terminal logs first.

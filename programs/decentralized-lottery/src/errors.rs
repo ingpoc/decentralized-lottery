@@ -49,4 +49,12 @@ pub enum LotteryError {
     RandomnessGenerationFailed,
     #[msg("Unauthorized access")]
     UnauthorizedAccess,
+    #[msg("Invalid state transition")]
+    InvalidStateTransition,
+    #[msg("Lottery cannot be cancelled in current state")]
+    InvalidCancellation,
+    #[msg("Only admin can perform this action")]
+    AdminRequired,
+    #[msg("Lottery is cancelled")]
+    LotteryCancelled,
 }
