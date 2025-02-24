@@ -1,0 +1,59 @@
+---
+description: 
+globs: 
+---
+---
+description: Rules and guidelines for the decentralized lottery system
+globs: ["programs/decentralized-lottery/src/**/*.rs"]
+version: 1.0.0
+last_updated: 2024-03-20
+---
+# Lottery System Rule
+
+## Purpose
+Define when and how to apply lottery system patterns and requirements.
+
+## Documentation Reference
+- Implementation in [lottery-system.md](docs/lottery-system.md)
+- ALWAYS check documentation first
+
+## When to Apply
+1. **Category: Implementation**
+   - When creating new lottery features
+   - When modifying existing lottery logic
+   - When handling lottery state changes
+   → See lottery-system.md#implementation
+
+2. **Category: Security**
+   - When implementing random number generation
+   - When handling user funds
+   - When managing access controls
+   → See lottery-system.md#security
+
+3. **Category: Updates**
+   - When changing lottery parameters
+   - When updating validation rules
+   - When modifying program constraints
+   → See lottery-system.md#updates
+
+## Change Management Process
+1. **Before Changes**
+   ```
+   1. Review lottery-system.md
+   2. Verify security requirements
+   3. Check existing patterns
+   ```
+
+## Documentation Rules
+1. **Update Requirements**
+   ```
+   1. Document new patterns
+   2. Update security guidelines
+   3. Maintain test examples
+   ```
+
+## Related Rules
+- Account management rules
+- Token handling rules
+- Security verification rules
+

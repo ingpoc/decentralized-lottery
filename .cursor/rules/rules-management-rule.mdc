@@ -1,0 +1,69 @@
+---
+description: Rules Management Guidelines
+globs: .cursor/rules/*.mdc, docs/*.md
+---
+---
+description: Guidelines for creating rules and documentation
+globs: .cursor/rules/*.mdc, docs/*.md
+version: 1.0.0
+last_updated: 2024-03-20
+---
+# Rules Management Rule
+
+## Purpose
+Define when and how to create rules and their corresponding documentation.
+
+## When to Apply
+1. **Category: New Feature**
+   - When adding new functionality
+   - When establishing new patterns
+   - When creating new components
+   → See feature-specific documentation
+
+2. **Category: Updates**
+   - When modifying existing features
+   - When changing implementation patterns
+   - When updating standards
+   → See relevant feature documentation
+
+3. **Category: Documentation**
+   - When documenting new features
+   - When updating implementation details
+   - When revising technical specs
+   → See feature documentation
+
+## Change Management Process
+1. **Before Creating Rule**
+   ```
+   1. Check if similar rule exists
+   2. Identify documentation needs
+   3. Define rule scope
+   ```
+
+2. **Before Updating Rule**
+   ```
+   1. Review existing rule
+   2. Check impacted documentation
+   3. Verify changes needed
+   ```
+
+## Documentation Rules
+1. **Rule Requirements**
+   ```
+   Rule (.mdc) must define:
+   - When to apply
+   - Process guidelines
+   - Documentation needs
+   ```
+
+2. **Documentation Requirements**
+   ```
+   Documentation (.md) must contain:
+   - Implementation details
+   - Code examples
+   - Technical specifications
+   ```
+
+## Related Rules
+- Development workflow rules
+- Code style rules

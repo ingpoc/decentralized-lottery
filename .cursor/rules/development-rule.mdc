@@ -1,0 +1,24 @@
+---
+description: Follow the rules during development
+globs: programs/**/*.toml,programs/**/*.rs, *.toml
+---
+
+## Development Workflow
+
+## Core Principles
+
+- To add any dependency add using command : cargo add <dependency-name>
+- To delete any dependency delete using command : cargo remove <dependency-name>
+- Build the anchor project using command: anchor build
+
+
+
+
+MCP Tools Available
+    - Brave MCP Server
+    - Code Search
+    - Sequential thinking
+    - github
+
+
+

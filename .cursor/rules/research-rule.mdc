@@ -1,0 +1,207 @@
+---
+description: Feature Research and Analysis Guidelines
+globs: programs/**/*.toml,programs/**/*.rs, *.toml
+---
+ ---
+description: Feature Research and Analysis Guidelines
+globs: programs/**/*.toml,programs/**/*.rs, *.toml
+version: 1.0.0
+last_updated: 2024-02-24
+---
+# Feature Research Guidelines
+
+## Purpose
+This document guides the AI on how to research, analyze, and compare feature implementations using available tools and external resources.
+
+## When to Apply
+
+1. **Feature Research**
+   - When user requests research on specific feature
+   - When implementing new features
+   - When comparing implementation approaches
+   - When validating current implementation
+   ```
+   Example Query: "Research best practices for implementing WebSocket connections in React"
+   ```
+
+2. **Implementation Analysis**
+   - When checking current implementation
+   - When validating patterns
+   - When looking for improvements
+   - When solving specific issues
+   ```
+   Example Query: "Analyze our WebSocket implementation compared to industry standards"
+   ```
+
+## Research Process
+
+1. **GitHub Research**
+   ```
+   1. Search popular repositories:
+      mcp_search_github(query, language="typescript")
+      - Check star count and last update
+      - Review implementation patterns
+      - Note common approaches
+
+   2. Search specific code:
+      mcp_search_code(query)
+      - Look for relevant file structures
+      - Analyze component organization
+      - Review type definitions
+   ```
+
+2. **Documentation Research**
+   ```
+   1. Check official docs:
+      mcp_search_mdn(query)
+      - Review official guidelines
+      - Note best practices
+      - Check browser compatibility
+
+   2. Check community solutions:
+      mcp_search_stackoverflow(query)
+      - Review accepted answers
+      - Note common pitfalls
+      - Check for edge cases
+   ```
+
+3. **Package Research**
+   ```
+   1. Search npm packages:
+      mcp_search_npm(query)
+      - Check package popularity
+      - Review documentation
+      - Note dependencies
+
+   2. Search PyPI packages:
+      mcp_search_pypi(query)
+      - Check Python alternatives
+      - Compare approaches
+      - Note unique features
+   ```
+
+4. **Web Research**
+   ```
+   1. Search recent articles:
+      mcp_brave_web_search(query)
+      - Check publication dates
+      - Note industry trends
+      - Review tutorials
+
+   2. Search local implementations:
+      mcp_brave_local_search(query)
+      - Check regional preferences
+      - Note business solutions
+      - Review case studies
+   ```
+
+## Analysis Process
+
+1. **Current Implementation**
+   ```
+   1. Check codebase:
+      codebase_search(query)
+      - Identify relevant files
+      - Review patterns used
+      - Note dependencies
+
+   2. Check documentation:
+      read_file(docPath)
+      - Review our guidelines
+      - Check patterns
+      - Note requirements
+   ```
+
+2. **Comparison Analysis**
+   ```
+   Compare against research findings:
+   1. Implementation patterns
+      - Common approaches
+      - Best practices
+      - Performance considerations
+
+   2. Code organization
+      - File structure
+      - Component hierarchy
+      - Type definitions
+
+   3. Error handling
+      - Common pitfalls
+      - Recovery strategies
+      - User feedback
+   ```
+
+## Report Generation
+
+1. **Research Summary**
+   ```
+   Structure the findings:
+   1. Popular Approaches
+      - List common patterns
+      - Note advantages/disadvantages
+      - Include code examples
+
+   2. Best Practices
+      - Security considerations
+      - Performance optimizations
+      - Error handling patterns
+
+   3. Implementation Examples
+      - GitHub references
+      - Community solutions
+      - Documentation links
+   ```
+
+2. **Comparison Report**
+   ```
+   Analyze current vs research:
+   1. Alignment Check
+      - What matches best practices
+      - What differs and why
+      - Improvement opportunities
+
+   2. Recommendations
+      - Suggested changes
+      - Priority order
+      - Implementation steps
+   ```
+
+## Response Format
+
+1. **Research Response**
+   ```
+   Structure the response as:
+   1. Research Summary
+      - Key findings
+      - Common patterns
+      - Best practices
+
+   2. Implementation Analysis
+      - Current state
+      - Comparison results
+      - Gap analysis
+
+   3. Recommendations
+      - Suggested improvements
+      - Implementation steps
+      - Resources and references
+   ```
+
+2. **Action Items**
+   ```
+   Provide clear next steps:
+   1. Immediate Actions
+      - Critical improvements
+      - Quick wins
+      - Security fixes
+
+   2. Long-term Improvements
+      - Architecture changes
+      - Pattern updates
+      - Documentation updates
+   ```
+
+## Related Rules
+- For development workflow: See [development-rule.mdc]
+- For rules management: See [rules-management-rule.mdc]
+

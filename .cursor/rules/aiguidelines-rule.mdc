@@ -1,0 +1,65 @@
+---
+description: AI guidelines to follow
+globs: programs/**/*.toml,programs/**/*.rs, *.toml
+---
+
+# Your rule content
+
+Root Anchor file : [Anchor.toml](mdc:decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/Anchor.toml)
+Root Cargo file [Cargo.toml](mdc:decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/Cargo.toml)
+Program Cargo file : [Cargo.toml](mdc:decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/decentralized-lottery/programs/decentralized-lottery/Cargo.toml)
+
+- Do not make change to [Cargo.toml](mdc:programs/decentralized-lottery/Cargo.toml) directly. If any dependency has to be added then use the cargo add command similarly for removal use cargo remove command.
+In [Cargo.toml](mdc:programs/decentralized-lottery/Cargo.toml) No changes to be made to 
+```
+[package]
+name = "decentralized-lottery"
+version = "0.1.0"
+description = "Created with Anchor"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "decentralized_lottery"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+no-log-data = []
+anchor-debug = []
+custom-heap = []
+custom-panic = []
+no-idl = []
+
+[dependencies]
+anchor-lang = "0.30.1"
+anchor-spl = "0.30.1"
+anchor-derive-space = "0.30.1"
+spl-token = { version = "=4.0.3", features = ["no-entrypoint"] }
+thiserror = "1.0"
+num-derive = "0.4.2"
+solana-program = "=1.18.26"
+```
+
+
+### Information Gathering
+1. **Search Strategy**
+   - Start with codebase search for context.
+   - Use `grep` for exact matches.
+   - Check documentation before making changes.
+   - Verify assumptions with multiple tools.
+   - **For third-party libraries, always check the official documentation and GitHub repository (README, examples, and issues) for usage examples, common pitfalls, and reported bugs.**
+
+2. **Code Understanding**
+   - Read related files completely.
+   - Check for dependencies and imports.
+   - Verify type definitions.
+   - Understand the component hierarchy.
+
+3. **Error Analysis**
+   - Check terminal logs first.
+   - Review the error provided by the user
+  
