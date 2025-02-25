@@ -8,7 +8,7 @@ pub struct LotteryCreated {
     pub lottery_type: String,
     pub ticket_price: u64,
     pub draw_time: i64,
-    pub prize_pool: u64,
+    pub target_prize_pool: u64,
 }
 
 #[event]

@@ -61,12 +61,8 @@ pub fn handler(ctx: Context<TransitionState>, next_state: LotteryState) -> Resul
                 return Err(LotteryError::InvalidDrawTime.into());
             }
 
-            // Validate prize pool is funded
-            let lottery_token_account = &ctx.accounts.lottery_token_account;
-            if lottery_token_account.amount < lottery_account.prize_pool {
-                return Err(LotteryError::InvalidPrizePool.into());
-            }
-
+            // No need to validate prize pool is funded - it will build from ticket sales
+            
             // Reset prize pool lock
             lottery_account.is_prize_pool_locked = false;
         },

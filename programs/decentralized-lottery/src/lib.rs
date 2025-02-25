@@ -8,6 +8,7 @@ use instructions::transition_state::*;
 use instructions::cancel_lottery::*;
 use state::lottery::*;
 use state::treasury::GlobalConfig;
+use errors::LotteryError;
 
 declare_id!("F1pffGp4n5qyNRcCnpoTH5CEfVKQEGxAxmRuRScUw4tz");
 
@@ -33,6 +34,20 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
 }
 
+#[derive(Accounts)]
+pub struct UpdateConfig<'info> {
+    #[account(
+        mut,
+        seeds = [b"global_config"],
+        bump,
+        has_one = admin @ LotteryError::UnauthorizedAccess
+    )]
+    pub global_config: Account<'info, GlobalConfig>,
+    #[account(mut)]
+    pub admin: Signer<'info>,
+    pub usdc_mint: Account<'info, Mint>,
+}
+
 #[program]
 pub mod decentralized_lottery {
     use super::*;
@@ -49,14 +64,25 @@ pub mod decentralized_lottery {
         Ok(())
     }
 
+    pub fn update_config(ctx: Context<UpdateConfig>) -> Result<()> {
+        let global_config = &mut ctx.accounts.global_config;
+        
+        // Update the USDC mint address
+        global_config.usdc_mint = ctx.accounts.usdc_mint.key();
+        
+        msg!("Updated USDC mint address to: {}", global_config.usdc_mint);
+        
+        Ok(())
+    }
+
     pub fn create_lottery(
         ctx: Context<CreateLottery>,
         lottery_type_enum: LotteryType,
         ticket_price: u64,
         draw_time: i64,
-        prize_pool: u64,
+        target_prize_pool: u64,
     ) -> Result<()> {
-        instructions::create_lottery::handler(ctx, lottery_type_enum, ticket_price, draw_time, prize_pool)
+        instructions::create_lottery::handler(ctx, lottery_type_enum, ticket_price, draw_time, target_prize_pool)
     }
 
     pub fn buy_ticket(ctx: Context<BuyTicket>, number_of_tickets: u64) -> Result<()> {

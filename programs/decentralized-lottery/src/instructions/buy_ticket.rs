@@ -68,6 +68,12 @@ pub fn handler(ctx: Context<BuyTicket>, number_of_tickets: u64) -> Result<()> {
         lottery_account.total_tickets,
         number_of_tickets,
     )?;
+    
+    // Update prize pool - all ticket purchases contribute to the prize pool
+    lottery_account.prize_pool = safe_add(
+        lottery_account.prize_pool,
+        total_cost,
+    )?;
 
     // Emit ticket purchase event
     emit!(TicketPurchased {

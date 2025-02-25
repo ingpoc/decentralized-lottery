@@ -64,4 +64,5 @@ pub struct LotteryAccount {
     pub last_ticket_id: u64,     // For tracking tickets
     pub oracle_pubkey: Option<Pubkey>, // Oracle/VRF for randomness
     pub is_prize_pool_locked: bool, // To lock prize pool during drawing
+    pub target_prize_pool: u64,  // Target prize pool amount (can be 0 if no target)
 }
