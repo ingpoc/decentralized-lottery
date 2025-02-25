@@ -16,7 +16,8 @@
    │   │   ├── buy_ticket.rs    // Ticket purchase
    │   │   ├── transition_state.rs // State management
    │   │   ├── select_winner.rs  // Winner selection
-   │   │   └── claim_prize.rs   // Prize distribution
+   │   │   ├── claim_prize.rs   // Prize distribution
+   │   │   └── update_config.rs  // Configuration updates
    │   ├── errors.rs            // Custom error definitions
    │   ├── events.rs            // Event definitions
    │   └── utils.rs             // Utility functions
@@ -73,6 +74,11 @@
    }
    ```
 
+   **Configuration Updates**
+   - The `update_config` instruction allows updating the USDC mint address without redeployment
+   - Only the admin can execute this instruction
+   - Updates are atomic and immediately effective for all new lotteries
+
 2. **Lottery Account**
    ```rust
    pub struct LotteryAccount {
@@ -105,6 +111,7 @@
    - Admin-only functions for configuration
    - PDA-based account validation
    - State transition restrictions
+   - USDC mint address can only be updated by admin
 
 3. **Fund Management**
    - Treasury fee collection
@@ -245,6 +252,17 @@
    
    - Run tests after each feature
    anchor test
+   
+   # Automated Build Process
+   - Full build with IDL and type generation
+   npm run build:full
+   
+   - Update IDL and types only (after anchor build)
+   npm run update-idl
+   
+   # Updating Configuration
+   - Update USDC mint address without redeployment
+   npm run update-config
    ```
 
 2. **Module Structure Best Practices**
@@ -540,4 +558,174 @@
             assert_eq!(lottery.state, LotteryState::Completed);
         }
     }
-    ``` 
+    ```
+
+## Configuration Management
+
+1. **USDC Mint Address Updates**
+   ```typescript
+   // Script to update USDC mint address (update-config.ts)
+   import { Connection, PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
+
+   // Create the instruction
+   const instruction = new TransactionInstruction({
+     keys: [
+       { pubkey: globalConfigPDA, isSigner: false, isWritable: true },
+       { pubkey: wallet.publicKey, isSigner: true, isWritable: true },
+       { pubkey: NEW_USDC_MINT, isSigner: false, isWritable: false },
+     ],
+     programId,
+     data,
+   });
+   ```
+
+2. **Update Process**
+   - The update-config script derives the global config PDA
+   - Creates a transaction with the update_config instruction
+   - Sends the transaction to the Solana network
+   - Verifies the update by checking the account data
+
+3. **Verification**
+   ```bash
+   # Verify transaction on Solana Explorer
+   https://explorer.solana.com/tx/{SIGNATURE}?cluster=devnet
+   ```
+
+4. **Configuration Tests**
+   ```typescript
+   describe("Configuration Management", () => {
+     it("Should update USDC mint address", async () => {
+       // Test update_config instruction
+       const newMint = await createMint(provider);
+       await program.methods
+         .updateConfig()
+         .accounts({
+           globalConfig: globalConfigPDA,
+           admin: provider.wallet.publicKey,
+           usdcMint: newMint,
+         })
+         .rpc();
+         
+       // Verify the update
+       const configAccount = await program.account.globalConfig.fetch(globalConfigPDA);
+       assert.equal(configAccount.usdcMint.toString(), newMint.toString());
+     });
+   });
+   ```
+
+## Developer Guidelines for Future Development
+
+1. **USDC Mint Address Considerations**
+   - **Frontend Synchronization**: Always ensure frontend code is updated to use the same USDC mint address as the on-chain program
+   - **Testing After Updates**: After updating the USDC mint address, test the full lottery lifecycle to ensure token transfers work correctly
+   - **Token Account Creation**: Remember that users need token accounts for the specific USDC mint being used
+   - **Devnet vs Mainnet**: Use different mint addresses for devnet and mainnet environments
+   ```typescript
+   // Example of environment-specific configuration
+   const USDC_MINT = {
+     devnet: new PublicKey("Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr"),
+     mainnet: new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
+   };
+   ```
+
+2. **Program Deployment and Updates**
+   - **Program ID Consistency**: When redeploying with the same program ID, no reinitialization is needed
+   - **PDA Derivation**: All PDAs remain valid after code updates as long as the program ID stays the same
+   - **Account Data Compatibility**: Ensure any changes to account structures are backward compatible
+   - **Migration Strategy**: For breaking changes, implement a migration path for existing accounts
+   ```rust
+   // Example of backward compatible account update
+   #[account]
+   pub struct GlobalConfig {
+       pub treasury: Pubkey,
+       pub treasury_fee_percentage: u16,
+       pub admin: Pubkey,
+       pub usdc_mint: Pubkey,
+       // New fields should be added at the end
+       pub new_field: Option<u64>, // Make new fields optional for compatibility
+   }
+   ```
+
+3. **Error Handling for Token Operations**
+   - **Token Account Existence**: Check if users have the appropriate token accounts before operations
+   - **Balance Verification**: Verify sufficient token balances before attempting transfers
+   - **Mint Verification**: Always validate that token accounts match the expected USDC mint
+   - **Error Recovery**: Implement proper error handling for failed token transfers
+   ```rust
+   // Example of robust token account validation
+   #[account(
+       constraint = ticket_payment.mint == global_config.usdc_mint @ LotteryError::InvalidMint,
+       constraint = ticket_payment.owner == buyer.key() @ LotteryError::InvalidOwner,
+       constraint = ticket_payment.amount >= ticket_price @ LotteryError::InsufficientFunds,
+   )]
+   pub ticket_payment: Account<'info, TokenAccount>,
+   ```
+
+4. **Frontend Integration Best Practices**
+   - **Wallet Connection**: Ensure wallet adapters support the token standard being used
+   - **Token Balance Display**: Show users their balance of the specific USDC mint being used
+   - **Transaction Monitoring**: Implement proper transaction monitoring and error handling
+   - **Configuration Synchronization**: Fetch the current USDC mint from the global config on startup
+   ```typescript
+   // Example of fetching current configuration
+   const fetchCurrentConfig = async () => {
+     const [globalConfigPDA] = PublicKey.findProgramAddressSync(
+       [Buffer.from('global_config')],
+       programId
+     );
+     
+     const configAccount = await program.account.globalConfig.fetch(globalConfigPDA);
+     setUsdcMint(configAccount.usdcMint);
+   };
+   ```
+
+5. **Security Considerations for Updates**
+   - **Admin Key Security**: Protect the admin private key used for configuration updates
+   - **Multi-Signature**: Consider implementing multi-signature requirements for sensitive operations
+   - **Timelock Mechanisms**: Add timelocks for critical configuration changes
+   - **Event Logging**: Log all configuration changes for auditability
+   ```rust
+   // Example of event emission for configuration changes
+   emit!(ConfigUpdated {
+       previous_mint: old_mint,
+       new_mint: new_mint,
+       updated_by: admin.key(),
+       timestamp: Clock::get()?.unix_timestamp,
+   });
+   ```
+
+6. **Testing Strategy for Configuration Changes**
+   - **Automated Tests**: Create specific tests for configuration update scenarios
+   - **Integration Testing**: Test the full lottery lifecycle with the new configuration
+   - **Edge Cases**: Test with invalid inputs and unauthorized attempts
+   - **Regression Testing**: Ensure existing functionality works with new configuration
+   ```typescript
+   // Example test cases for configuration updates
+   it("Should reject unauthorized update attempts", async () => {
+     // Test with non-admin wallet
+   });
+   
+   it("Should maintain existing lotteries after update", async () => {
+     // Create lottery, update config, verify lottery still works
+   });
+   
+   it("Should use new mint for new lotteries", async () => {
+     // Update config, create new lottery, verify it uses new mint
+   });
+   ```
+
+7. **Automated Build and IDL Management**
+   - **Always Use Automated Scripts**: Use `npm run build:full` for complete builds to ensure IDL and types stay in sync
+   - **Frontend Synchronization**: The automated process ensures frontend code uses the latest IDL definitions
+   - **Version Control**: Commit both the IDL and generated types to version control for tracking changes
+   - **CI/CD Integration**: Include the automated build process in CI/CD pipelines
+   ```bash
+   # Complete build process
+   npm run build:full  # Cleans, builds, and updates all IDL files and types
+   
+   # After making changes to the program
+   npm run build       # Builds and updates IDL files without cleaning
+   
+   # After manual anchor build
+   npm run update-idl  # Updates IDL files and types only
+   ``` 

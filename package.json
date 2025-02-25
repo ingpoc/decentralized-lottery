@@ -3,7 +3,10 @@
   "scripts": {
     "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
-    "update-config": "ts-node scripts/update-config.ts"
+    "update-config": "ts-node scripts/update-config.ts",
+    "update-idl": "ts-node scripts/update-idl.ts",
+    "build": "anchor build && ts-node scripts/update-idl.ts",
+    "build:full": "./scripts/build.sh"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.30.1",
