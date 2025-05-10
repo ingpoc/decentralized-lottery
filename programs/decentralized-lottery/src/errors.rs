@@ -57,4 +57,16 @@ pub enum LotteryError {
     AdminRequired,
     #[msg("Lottery is cancelled")]
     LotteryCancelled,
+    #[msg("Lottery is not open for ticket purchases.")]
+    LotteryNotOpenForTicketPurchases,
+    #[msg("Lottery prize has already been claimed.")]
+    LotteryAlreadyClaimed,
+    #[msg("Failed to derive PDA.")]
+    PDADerivationError,
+    #[msg("Provided ticket PDA does not match the winning ticket stored in the lottery.")]
+    InvalidWinningTicket,
+    #[msg("The provided ticket has already been claimed or refunded.")]
+    TicketAlreadyClaimed,
+    #[msg("Lottery is not in a state where refunds can be claimed (must be Cancelled or Expired).")]
+    InvalidStateForRefund,
 }

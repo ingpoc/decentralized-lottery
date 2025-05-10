@@ -1,7 +1,7 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { DecentralizedLottery } from "../target/types/decentralized_lottery";
-import { Keypair, PublicKey, SystemProgram, LAMPORTS_PER_SOL, SYSVAR_CLOCK_PUBKEY } from "@solana/web3.js";
+import { Keypair, PublicKey, SystemProgram, LAMPORTS_PER_SOL, SYSVAR_CLOCK_PUBKEY, SYSVAR_RENT_PUBKEY } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync, createMint, createAccount, mintTo, getMint, getAccount } from "@solana/spl-token";
 import { assert } from "chai";
 import { BN } from "bn.js";
@@ -88,33 +88,60 @@ describe("decentralized-lottery", () => {
   });
 
   it("Initialize Config and Treasury", async () => {
-    const configAccount = await program.account.globalConfig.fetch(configPda);
-    assert.isTrue(configAccount.authorizedOperator.equals(authorizedOperator.publicKey));
+    await program.methods.initializeConfig(authorizedOperator.publicKey, treasuryUsdcAta, 500, usdcMint)
+      .accounts({
+        globalConfig: configPda,
+        admin: authorizedOperator.publicKey,
+        treasuryTokenAccount: treasuryUsdcAta,
+        usdcMint: usdcMint,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([authorizedOperator as any])
+      .rpc();
+
+    const globalConfigAccount = await program.account.globalConfig.fetch(configPda);
+    assert.equal(globalConfigAccount.admin.toString(), authorizedOperator.publicKey.toString());
+    assert.equal(globalConfigAccount.treasuryTokenAccount.toString(), treasuryUsdcAta.toString());
+    assert.equal(globalConfigAccount.treasuryFeePercentage, 500);
+    assert.equal(globalConfigAccount.usdcMint.toString(), usdcMint.toString());
   });
 
 
   it("Create Lottery", async () => {
-    const lotteryId = 1; // Example lottery ID, replace with dynamic generation if needed
-    const lotteryPdaSeed = anchor.utils.bytes.utf8.encode("lottery");
-    const lotteryIdBytes = Buffer.from(lotteryId.toString());
-    [lotteryPda] = PublicKey.findProgramAddressSync([lotteryPdaSeed, lotteryIdBytes], program.programId);
+    const lotteryType = { daily: {} };
+    const ticketPrice = new BN(1 * 10**6); // 1 USDC
+    const drawTime = new BN(Math.floor((new Date().getTime() + 24 * 60 * 60 * 1000) / 1000)); // Tomorrow
+    const prizePool = new BN(100 * 10**6); // 100 USDC
 
-    await program.methods.createLottery(lotteryType)
+    // Validate inputs before transaction
+    if (ticketPrice.lte(new BN(0))) {
+      throw new Error("Ticket price must be greater than 0");
+    }
+    if (drawTime.lte(new BN(Math.floor(new Date().getTime() / 1000)))) {
+      throw new Error("Draw time must be in the future");
+    }
+
+    await program.methods.createLottery(lotteryType, ticketPrice, drawTime, prizePool)
       .accounts({
-        lottery: lotteryPda,
-        config: configPda,
-        operator: authorizedOperator.publicKey,
+        lotteryAccount: lotteryPda,
+        creator: authorizedOperator.publicKey,
+        globalConfig: configPda,
+        tokenMint: usdcMint,
+        creatorTokenAccount: operatorUsdcAta,
+        lotteryTokenAccount: lotteryUsdcAta,
+        tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
-        clock: SYSVAR_CLOCK_PUBKEY,
-        lotteryIdGenerator: lotteryIdGenerator.publicKey, // Using keypair pubkey as seed - simplistic
+        rent: SYSVAR_RENT_PUBKEY,
       })
-      .signers([authorizedOperator, lotteryIdGenerator]) // Sign with operator and lotteryIdGenerator
+      .signers([authorizedOperator as any])
       .rpc();
 
     const lotteryAccount = await program.account.lotteryAccount.fetch(lotteryPda);
-    assert.isTrue(lotteryAccount.lotteryType.daily !== undefined);
-    assert.isTrue(lotteryAccount.lotteryState.created !== undefined);
-    assert.equal(lotteryAccount.ticketPrice.toString(), (1 * 10**6).toString()); // 1 USDC
+    assert.equal(lotteryAccount.lotteryType.daily, true);
+    assert.equal(lotteryAccount.ticketPrice.toString(), ticketPrice.toString());
+    assert.equal(lotteryAccount.drawTime.toString(), drawTime.toString());
+    assert.equal(lotteryAccount.prizePool.toString(), prizePool.toString());
+    assert.equal(lotteryAccount.state.created, true);
   });
 
 
@@ -123,22 +150,21 @@ describe("decentralized-lottery", () => {
     const purchaserUsdcAtaBefore = await getAccount(provider.connection, purchaserUsdcAta);
 
     const ticketSeed = anchor.utils.bytes.utf8.encode("ticket");
-    const lotteryIdBytes = Buffer.from("1"); // Assuming lottery ID 1 from previous test
-    const purchaserBytes = purchaser.publicKey.toBytes();
-    [ticketPda] = PublicKey.findProgramAddressSync([ticketSeed, lotteryIdBytes, purchaserBytes], program.programId);
+    const lotteryKey = lotteryPda.toBytes();
+    const ticketIdBytes = Buffer.from(lotteryAccountBefore.lastTicketId.toString());
+    [ticketPda] = PublicKey.findProgramAddressSync([ticketSeed, lotteryKey, ticketIdBytes], program.programId);
 
-
-    await program.methods.buyTicket(new BN(1), ticketNumbers)
+    await program.methods.buyTicket()
       .accounts({
-        lottery: lotteryPda,
-        ticket: ticketPda,
-        purchaser: purchaser.publicKey,
-        purchaserUsdcAta: purchaserUsdcAta,
-        lotteryUsdcAta: lotteryUsdcAta,
+        lotteryAccount: lotteryPda,
+        ticketAccount: ticketPda,
+        userTokenAccount: purchaserUsdcAta,
+        lotteryTokenAccount: lotteryUsdcAta,
+        buyer: purchaser.publicKey,
         tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
       })
-      .signers([purchaser])
+      .signers([purchaser as any])
       .rpc();
 
     const lotteryAccountAfter = await program.account.lotteryAccount.fetch(lotteryPda);
@@ -147,8 +173,7 @@ describe("decentralized-lottery", () => {
 
     assert.isTrue(lotteryAccountAfter.prizePool.gt(lotteryAccountBefore.prizePool));
     assert.equal(lotteryAccountAfter.prizePool.toString(), (1 * 10**6).toString()); // Prize pool increased by ticket price
-    assert.isTrue(ticketAccount.purchaser.equals(purchaser.publicKey));
-    assert.deepEqual(ticketAccount.ticketNumbers, ticketNumbers);
+    assert.isTrue(ticketAccount.buyer.equals(purchaser.publicKey));
     assert.equal(purchaserUsdcAtaAfter.amount.toString(), purchaserUsdcAtaBefore.amount.sub(new BN(1 * 10**6)).toString()); // Purchaser USDC balance decreased
   });
 
@@ -223,6 +248,20 @@ describe("decentralized-lottery", () => {
     assert.isTrue(winnerUsdcAtaBalanceAfter.amount.gt(winnerUsdcAtaBalanceBefore.amount)); // Winner balance increased
 
     // In real tests, assert specific prize amount based on ticket tier and lottery prize pool.
+  });
+
+  it("Add Authorized Operator", async () => {
+    await program.methods.addAuthorizedOperator(authorizedOperator.publicKey)
+      .accounts({
+        globalConfig: configPda,
+        admin: authorizedOperator.publicKey,
+      })
+      .signers([authorizedOperator as any])
+      .rpc();
+
+    const globalConfigAccount = await program.account.globalConfig.fetch(configPda);
+    // Assuming authorizedOperators is an array in the account structure
+    assert.equal(globalConfigAccount.authorizedOperators[0].toString(), authorizedOperator.publicKey.toString());
   });
 
   // Add more tests for:

@@ -32,9 +32,11 @@ pub struct TransitionState<'info> {
     )]
     pub lottery_token_account: Account<'info, TokenAccount>,
 
-    /// Optional Oracle/VRF account for randomness
-    /// Only required when transitioning to Drawing state
-    pub oracle_account: Option<AccountInfo<'info>>,
+    /// Placeholder: Depending on the VRF provider, specific accounts (VRF account, Oracle queue, etc.)
+    /// would be needed here when transitioning to Drawing/AwaitingRandomness.
+    /// pub vrf: AccountInfo<'info>,
+    /// pub oracle_queue: AccountInfo<'info>,
+    /// pub vrf_request_account: AccountInfo<'info>, // The account to store request state
 
     #[account(mut)]
     pub admin: Signer<'info>,
@@ -89,15 +91,34 @@ pub fn handler(ctx: Context<TransitionState>, next_state: LotteryState) -> Resul
                 return Ok(());
             }
 
-            // Validate Oracle account is provided
-            let oracle_account = ctx.accounts.oracle_account.as_ref()
-                .ok_or(LotteryError::OraclePriceFeedError)?;
-
             // Lock prize pool
             lottery_account.is_prize_pool_locked = true;
             
-            // Set Oracle for randomness
-            lottery_account.oracle_pubkey = Some(oracle_account.key());
+            // Placeholder: Initiate VRF request CPI call here using oracle accounts
+            // This would typically involve calling the VRF provider's program
+            // E.g., switchboard_program.request_randomness(...);
+            // Need to pass lottery account key, payer (admin), VRF accounts from context
+            msg!("Placeholder: Initiating VRF request...");
+            
+            // Store the VRF request account pubkey (passed in context) if required by oracle
+            // lottery_account.vrf_request_account = Some(ctx.accounts.vrf_request_account.key());
+            
+            // Set state to AwaitingRandomness
+            lottery_account.state = LotteryState::AwaitingRandomness;
+            msg!("Lottery state transitioned to AwaitingRandomness");
+
+            // Emit state change event for AwaitingRandomness
+            emit!(LotteryStateChanged {
+                lottery_id: lottery_account.key(),
+                previous_state: current_state,
+                new_state: LotteryState::AwaitingRandomness,
+                timestamp: clock.unix_timestamp,
+                total_tickets_sold: lottery_account.total_tickets,
+                current_prize_pool: lottery_account.prize_pool,
+            });
+            
+            // Return early as state transition is handled within this block
+            return Ok(());
         },
         _ => {}
     }

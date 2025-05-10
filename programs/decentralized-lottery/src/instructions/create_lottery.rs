@@ -17,7 +17,7 @@ pub struct CreateLottery<'info> {
     #[account(
         init,
         payer = creator,
-        space = 8 + 64 + 8 + 8 + 8 + 8 + (1 + 32) + 1 + 32 + 32 + 1 + 8 + 8,
+        space = 8 + 1 + 8 + 8 + 8 + 8 + 33 + 1 + 32 + 32 + 1 + 8 + 33 + 33 + 1 + 8 + 1, // ~226 bytes
         seeds = [
             b"lottery",
             lottery_type_enum.to_string().as_bytes(),
@@ -25,6 +25,13 @@ pub struct CreateLottery<'info> {
         ],
         bump
     )]
+    /// The lottery account storing all metadata about the lottery.
+    /// PDA Derivation Explanation:
+    /// - Seed prefix: b"lottery" - A static identifier for lottery accounts.
+    /// - Seed 1: lottery_type_enum.to_string().as_bytes() - The type of lottery (e.g., Daily, Weekly) as a string, ensuring uniqueness across different lottery types.
+    /// - Seed 2: draw_time.to_le_bytes() - The scheduled draw time as little-endian bytes, ensuring uniqueness for lotteries of the same type but different draw times.
+    /// - Bump: Automatically determined by Anchor to find a valid Program Derived Address (PDA) that can be signed by the program.
+    /// Rationale: This combination ensures that each lottery is uniquely identifiable by its type and draw time, preventing collisions and allowing multiple lotteries of the same type to exist with different draw schedules.
     pub lottery_account: Account<'info, LotteryAccount>,
 
     #[account(mut)]
@@ -62,6 +69,12 @@ pub struct CreateLottery<'info> {
         token::mint = token_mint,
         token::authority = lottery_account
     )]
+    /// The token account holding the prize pool for this lottery.
+    /// PDA Derivation Explanation:
+    /// - Seed prefix: b"lottery_token" - A static identifier for lottery token accounts.
+    /// - Seed 1: lottery_account.key().as_ref() - The public key of the associated lottery account, linking this token account uniquely to a specific lottery.
+    /// - Bump: Automatically determined by Anchor to find a valid PDA.
+    /// Rationale: Associating the token account with the lottery account's key ensures that each lottery has exactly one prize pool token account, preventing unauthorized access or confusion between different lotteries' funds.
     pub lottery_token_account: Account<'info, TokenAccount>,
 
     pub token_program: Program<'info, Token>,
@@ -94,19 +107,26 @@ pub fn handler(
     }
 
     // Initialize Lottery Account
+    /// Lottery State Flow Explanation:
+    /// - Initial State: Created - The lottery is initialized in the 'Created' state, indicating it is ready to accept ticket purchases.
+    /// - Transition: From 'Created', the lottery can move to 'Active' (via a separate instruction or automatically based on conditions), then to 'AwaitingRandomness' when the draw time is reached, 'Completed' once randomness is settled and a winner is selected, or 'Expired' if no tickets are sold by the draw time.
+    /// - Purpose: This state machine ensures a clear lifecycle for the lottery, preventing invalid operations (e.g., buying tickets after the draw) and providing transparency to participants.
     lottery_account.lottery_type = lottery_type_enum.clone();
     lottery_account.ticket_price = ticket_price;
     lottery_account.draw_time = draw_time;
-    lottery_account.prize_pool = 0; // Start with zero prize pool
-    lottery_account.target_prize_pool = target_prize_pool; // Store target prize pool
+    lottery_account.prize_pool = 0;
+    lottery_account.target_prize_pool = target_prize_pool;
     lottery_account.total_tickets = 0;
-    lottery_account.winning_numbers = None;
+    lottery_account.winning_ticket = None;
     lottery_account.state = LotteryState::Created;
     lottery_account.created_by = ctx.accounts.creator.key();
     lottery_account.global_config = global_config.key();
     lottery_account.auto_transition = false;
     lottery_account.last_ticket_id = 0;
+    lottery_account.oracle_pubkey = None;
+    lottery_account.vrf_request_account = None;
     lottery_account.is_prize_pool_locked = false;
+    lottery_account.is_claimed = false;
 
     // No token transfer needed - prize pool starts at zero and builds from ticket sales
 

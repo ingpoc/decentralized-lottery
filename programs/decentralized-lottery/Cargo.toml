@@ -9,11 +9,11 @@ crate-type = ["cdylib", "lib"]
 name = "decentralized_lottery"
 
 [features]
-default = []
+default = ["no-idl"]
 cpi = ["no-entrypoint"]
 no-entrypoint = []
 no-log-ix-name = []
-idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+idl-build = ["anchor-lang/idl-build"]
 no-log-data = []
 anchor-debug = []
 custom-heap = []
@@ -21,13 +21,21 @@ custom-panic = []
 no-idl = []
 
 [dependencies]
-anchor-lang = "0.30.1"
-anchor-spl = "0.30.1"
-anchor-derive-space = "0.30.1"
+anchor-lang = "0.28.0"
+anchor-spl = "0.28.0"
+anchor-derive-space = "0.28.0"
 spl-token = { version = "=4.0.3", features = ["no-entrypoint"] }
 thiserror = "1.0"
 num-derive = "0.4.2"
-solana-program = "=1.18.26"
+solana-program = "=1.16.27"
+switchboard-solana = { version = "0.28.12", features = ["devnet"] }
+switchboard-v2 = "0.4.0"
+
+[profile.release]
+panic = "abort"
+
+[package.metadata.anchor]
+program = { name = "decentralized_lottery", id = "F1pffGp4n5qyNRcCnpoTH5CEfVKQEGxAxmRuRScUw4tz" }
 
 
 
