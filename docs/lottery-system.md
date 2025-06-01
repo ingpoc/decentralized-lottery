@@ -1,27 +1,32 @@
 # Lottery System Documentation
 
 ## File Structure
-1. **Core Files**
+1. **Core Program Files**
    ```
    programs/decentralized-lottery/
    ├── src/
-   │   ├── lib.rs                 // Program entry and instruction handlers
-   │   ├── state/                 // State definitions
+   │   ├── lib.rs                 // Program entry and main module definitions
+   │   ├── state/                 // Account struct definitions
    │   │   ├── mod.rs            // State module exports
-   │   │   ├── lottery.rs        // Lottery account structures
-   │   │   └── treasury.rs       // Treasury and config structures
-   │   ├── instructions/         // Instruction implementations
+   │   │   ├── global_config.rs  // Global configuration account
+   │   │   ├── lottery.rs        // Lottery account structure & enums
+   │   │   ├── ticket.rs         // Ticket account structure
+   │   │   └── treasury.rs       // (If any specific treasury state, else handled by global_config)
+   │   ├── instructions/         // Instruction handlers and their account contexts
    │   │   ├── mod.rs           // Instruction module exports
-   │   │   ├── create_lottery.rs // Lottery creation
-   │   │   ├── buy_ticket.rs    // Ticket purchase
-   │   │   ├── transition_state.rs // State management
-   │   │   ├── select_winner.rs  // Winner selection
-   │   │   ├── claim_prize.rs   // Prize distribution
-   │   │   └── update_config.rs  // Configuration updates
-   │   ├── errors.rs            // Custom error definitions
-   │   ├── events.rs            // Event definitions
-   │   └── utils.rs             // Utility functions
-   └── tests/                   // Integration tests
+   │   │   ├── initialize.rs     // Handles program initialization (GlobalConfig)
+   │   │   ├── create_lottery.rs // Handles lottery creation
+   │   │   ├── buy_ticket.rs    // Handles ticket purchases
+   │   │   ├── transition_state.rs // Manages lottery state changes (manual admin transitions)
+   │   │   ├── settle_randomness.rs // Handles VRF randomness settlement
+   │   │   ├── select_winner.rs  // Handles winner selection using VRF randomness
+   │   │   ├── claim_prize.rs   // Handles prize claims by winners
+   │   │   └── update_config.rs  // Handles updates to global configuration
+   │   ├── errors.rs            // Custom error definitions for the program
+   │   ├── events.rs            // Event definitions emitted by instructions
+   │   └── utils.rs             // Utility functions (e.g., PDA derivations)
+   └── tests/                   // Integration tests (TypeScript)
+       └── decentralized-lottery.ts
    ```
 
 ## Implementation Patterns
@@ -29,11 +34,14 @@
 1. **Lottery States**
    ```rust
    pub enum LotteryState {
-       Created,    // Initial state after creation
-       Open,       // Accepting ticket purchases
-       Drawing,    // Winner selection in progress
-       Completed,  // Winners selected
-       Expired     // Past claim deadline
+       Created,            // Initial state after creation, not yet open for ticket sales.
+       Open,               // Accepting ticket purchases.
+       Locked,             // Ticket sales closed (e.g., draw time reached, before VRF request). Optional manual step.
+       Drawing,            // (Largely deprecated in favor of AwaitingRandomness) May represent a brief moment when transitioning, or an admin recovery point.
+       AwaitingRandomness, // Randomness requested from VRF, awaiting callback/settlement. Tickets cannot be bought.
+       Completed,          // Randomness received and processed. Winner selection can now occur or has occurred.
+       Expired,            // Lottery ended without a winner (e.g., no tickets sold, or VRF callback timed out).
+       Cancelled           // Lottery manually cancelled by admin. Can happen in various active states.
    }
    ```
 
@@ -82,30 +90,48 @@
 2. **Lottery Account**
    ```rust
    pub struct LotteryAccount {
+       // Core Details
        pub lottery_type: LotteryType,
        pub ticket_price: u64,
-       pub draw_time: i64,
+       pub draw_time: i64,         // Unix timestamp for when the lottery draw should ideally occur.
+       pub authority: Pubkey,      // The authority (creator/admin) for this specific lottery.
+       pub global_config: Pubkey,  // Link to the global configuration.
+       pub created_by: Pubkey,     // Original creator of the lottery.
+       pub created_at: i64,        // Timestamp of creation.
+
+       // State & Prize Management
+       pub state: LotteryState,
        pub prize_pool: u64,
        pub total_tickets: u64,
-       pub winning_numbers: Option<Vec<u8>>,
-       pub state: LotteryState,
-       pub created_by: Pubkey,
-       pub global_config: Pubkey,
-       pub treasury_fee_percent: u8,
-       pub prize_tiers: Vec<PrizeTier>,
-       pub winners: Vec<Winner>,
-       pub last_ticket_id: u64,
-       pub pyth_price_accounts: Vec<Pubkey>,
-       pub auto_transition: bool,
+       pub last_ticket_id: u64,    // Counter for generating unique ticket IDs.
+       pub winning_ticket: Option<Pubkey>, // PDA of the winning TicketAccount.
+       pub completed_at: Option<i64>,  // Timestamp of completion, expiry, or cancellation.
+       pub is_prize_pool_locked: bool, // True if prize pool cannot be further modified (e.g., after randomness).
+       pub is_claimed: bool,           // True if the main prize has been claimed.
+       pub target_prize_pool: u64, // Optional target prize pool amount.
+
+       // VRF (Verifiable Random Function) Fields
+       pub vrf_client: Option<Pubkey>,          // Pubkey of the VRF client account (e.g., Switchboard VRF PDA).
+       pub vrf_request_key: Option<Pubkey>,     // Unique identifier for the VRF request (often same as vrf_client or derived).
+       pub vrf_randomness: Option<[u8; 32]>,  // Stores the raw randomness received from the VRF.
+       pub randomness_fulfilled: bool,        // True once valid randomness has been received and stored.
+       pub oracle_pubkey: Option<Pubkey>,       // (Currently less used, might be for specific VRF provider details or future use).
+
+       pub auto_transition: bool,  // (Currently not fully implemented) Intended for automatic state changes.
+       // Removed: winning_numbers, treasury_fee_percent (now in GlobalConfig), prize_tiers, winners (simplified model), pyth_price_accounts
    }
    ```
 
 ## Security Features
 
 1. **Random Number Generation**
-   - Uses Pyth price feeds for randomness source
-   - Combines multiple price feeds with timestamps
-   - SHA256 hashing for final number generation
+   - Utilizes a Verifiable Random Function (VRF) for secure and unpredictable random number generation, crucial for fair winner selection. The current implementation is structured to integrate with a VRF provider like Switchboard.
+   - The process involves:
+     1. **Request**: When the lottery is ready (e.g., draw time reached, tickets sold), the `transition_state` instruction (moving to `AwaitingRandomness`) makes a placeholder CPI call to the chosen VRF provider to request randomness. The `LotteryAccount` stores a `vrf_request_key` to identify this request.
+     2. **Fulfillment**: An off-chain VRF oracle (e.g., operated by Switchboard) detects this request on-chain. It generates a random number along with a cryptographic proof and delivers this back to the VRF provider's on-chain program.
+     3. **Settlement**: The `settle_randomness` instruction is then called. This instruction interacts with the VRF provider's program (via CPI) to verify the randomness proof using the stored `vrf_request_key` and retrieves the validated random value.
+     4. **Storage**: If valid, the randomness is stored in `LotteryAccount.vrf_randomness`, `randomness_fulfilled` is set to true, and the lottery state transitions to `Completed`.
+     5. **Usage**: The `select_winner` instruction uses this verified `vrf_randomness` to determine the winning ticket.
 
 2. **Access Control**
    - Admin-only functions for configuration
@@ -120,17 +146,39 @@
 
 ## State Transitions
 
-1. **Valid Transitions**
-   ```
-   Created -> Open -> Drawing -> Completed
-                              -> Expired
-   ```
+The lottery progresses through various states, managed by specific instructions. Admin intervention is typically required for manual state changes, while some transitions might be automated by keepers or occur due to user actions (like buying the first ticket if the lottery ATA needs creation).
 
-2. **Transition Rules**
-   - Created to Open: Before draw time
-   - Open to Drawing: At draw time
-   - Drawing to Completed: After winner selection
-   - Drawing to Expired: If selection fails/times out
+1.  **Simplified State Flow Diagram**:
+    ```
+    1. Created --(admin: transition_state to Open)--> Open
+    2. Open --(user: buy_ticket)--> Open (tickets sold, prize pool increases)
+       (If draw_time passes while Open, buy_ticket blocks; admin must call transition_state)
+    3. Open --(admin: transition_state to Drawing, past draw_time, tickets > 0)--> AwaitingRandomness
+       (This step initiates VRF request)
+    4. Open --(admin: transition_state to Expired, past draw_time, tickets == 0)--> Expired
+    5. AwaitingRandomness --(keeper/admin: settle_randomness, after VRF oracle fulfillment)--> Completed
+    6. AwaitingRandomness --(admin: transition_state to Expired, if VRF callback times out)--> Expired
+    7. Completed --(anyone/admin: select_winner)--> Completed (winning_ticket PDA is set)
+    8. Completed --(winner: claim_prize, with correct winning ticket)--> Completed (prize paid out, lottery marked claimed)
+
+    General Transitions:
+    - Any active (non-terminal) state --(admin: transition_state to Cancelled)--> Cancelled
+    ```
+
+2.  **Key Transition Rules & Logic**:
+    *   **Created to Open**: Admin uses `transition_state`. Lottery becomes available for ticket sales.
+    *   **Open to AwaitingRandomness**:
+        *   Triggered by admin via `transition_state` (targeting `Drawing` state variant) typically after `draw_time` has passed and tickets have been sold.
+        *   The `transition_state` instruction initiates the VRF randomness request (placeholder CPI) and sets the state to `AwaitingRandomness`.
+        *   If no tickets are sold by `draw_time`, admin can transition to `Expired`.
+    *   **AwaitingRandomness to Completed**:
+        *   Triggered by `settle_randomness` instruction.
+        *   This instruction verifies and stores the VRF randomness.
+        *   Sets `randomness_fulfilled = true`.
+    *   **AwaitingRandomness to Expired**:
+        *   Admin can manually transition to `Expired` via `transition_state` if the VRF callback does not occur within a reasonable timeout period beyond `draw_time`.
+    *   **Winner Selection**: The `select_winner` instruction is called when the lottery is `Completed` and `randomness_fulfilled` is true. It uses the stored randomness to pick a winner.
+    *   **Cancellation**: Admin can cancel a lottery from most active states using `transition_state`. (Refund logic is typically a separate concern or instruction).
 
 ## Events
 
@@ -156,6 +204,33 @@
        pub lottery_id: Pubkey,
        pub previous_state: LotteryState,
        pub new_state: LotteryState,
+       pub timestamp: i64,
+       // Optional: additional context like total_tickets_sold, current_prize_pool
+   }
+
+   pub struct RandomnessSettled { // Emitted by settle_randomness
+       pub lottery_id: Pubkey,
+       pub randomness: [u8; 32],
+       pub timestamp: i64,
+   }
+
+   pub struct LotteryWinnerDetermined { // Emitted by select_winner
+       pub lottery_id: Pubkey,
+       // previous_state and new_state are likely both 'Completed' here.
+       // Consider if these are needed or if other fields are more relevant.
+       pub winner: Pubkey,               // PDA of the winning TicketAccount
+       pub randomness_source: Pubkey,    // e.g., VRF client account key used for the request
+       pub winning_ticket_id: u64,       // Numerical ID of the winning ticket
+       pub timestamp: i64,
+   }
+
+   pub struct PrizeClaimed { // Emitted by claim_prize
+       pub lottery_id: Pubkey,
+       pub ticket_id: u64,
+       pub winner: Pubkey, // Pubkey of the prize recipient (buyer of the ticket)
+       pub prize_pool: u64, // Total prize pool at time of claim
+       pub treasury_fee: u64,
+       pub winner_payout: u64,
        pub timestamp: i64,
    }
    ```
@@ -211,8 +286,13 @@
        it("Buy Ticket", async () => {
            // Test ticket purchase
        });
+       // ... other integration tests for state transitions, VRF flow, winner selection, prize claim ...
    });
    ```
+   *   **VRF Mocking**: Integration tests for VRF interactions should use a mocked VRF handler or simulate oracle callbacks to test the `settle_randomness` and `select_winner` flow. Unit tests within Rust modules can also mock dependencies.
+
+## Keeper Bots
+For fully automated operation (e.g., transitioning lotteries when `draw_time` is reached, or calling `settle_randomness` promptly after VRF fulfillment if not handled by the VRF service itself), an external keeper bot is necessary. This bot would monitor on-chain state and time, and call the appropriate instructions (`transition_state`, `settle_randomness`) when conditions are met.
 
 ## Common Pitfalls
 
@@ -282,8 +362,19 @@
    #[program]
    pub mod decentralized_lottery {
        use super::*;
-       // Instruction handlers
+       pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+           instructions::initialize::handler(ctx)
+       }
+       // ... other top-level instruction callers for create_lottery, buy_ticket, etc.
    }
+
+   // instructions/some_instruction.rs - Example of an instruction module
+   use anchor_lang::prelude::*;
+   // ... other necessary imports like state, errors ...
+   #[derive(Accounts)]
+   pub struct SomeInstruction<'info> { /* ... accounts ... */ }
+
+   pub fn handler(ctx: Context<SomeInstruction>) -> Result<()> { /* ... logic ... */ }
    ```
 
 3. **Incremental Implementation Order**

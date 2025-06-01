@@ -16,98 +16,67 @@ describe("decentralized-lottery", () => {
 
   // Accounts
   let configPda: PublicKey;
-  let treasuryPda: PublicKey;
-  let lotteryPda: PublicKey;
-  let ticketPda: PublicKey;
+  let treasuryConfigPda: PublicKey; // Renamed for clarity if it's for a treasury config state
+  let lotteryPda: PublicKey; // Will be set dynamically in 'Create Lottery' test
+  let ticketPda: PublicKey; // Will be set dynamically in 'Buy Ticket' test
 
   // Token & ATA Accounts
   let usdcMint: PublicKey;
   let operatorUsdcAta: PublicKey;
-  let lotteryUsdcAta: PublicKey;
-  let treasuryUsdcAta: PublicKey;
+  let lotteryUsdcAta: PublicKey; // Will be derived dynamically once lotteryPda is known
+  let treasuryUsdcAta: PublicKey; // ATA for the program's treasury, owned by configPda
   let purchaserUsdcAta: PublicKey;
 
   // Operator & Purchaser
-  const authorizedOperator = payer.payer; // Using payer.payer as Keypair for authorized operator
+  const authorizedOperator = payer.payer;
   const purchaser = Keypair.generate();
 
-  const lotteryType = { daily: {} };
-  // const ticketNumbers = [1, 2, 3, 4, 5, 6]; // Not used in current buy_ticket
+  // Default lottery parameters for tests
+  const defaultLotteryType = { daily: {} };
+  const defaultTicketPrice = new BN(1 * 10**6); // 1 USDC
+  const defaultDrawTimeOffset = 24 * 60 * 60 * 1000; // 24 hours from now
+  const defaultTargetPrizePool = new BN(100 * 10**6); // 100 USDC
 
   before(async () => {
-    // 1. Derive PDAs
-    const configPdaSeed = anchor.utils.bytes.utf8.encode("global_config");
-    [configPda] = PublicKey.findProgramAddressSync([configPdaSeed], program.programId);
+    // 1. Derive PDAs (those that are static)
+    [configPda] = PublicKey.findProgramAddressSync(
+      [anchor.utils.bytes.utf8.encode("global_config")],
+      program.programId
+    );
 
-    const treasuryPdaSeed = anchor.utils.bytes.utf8.encode("treasury"); // Assuming "treasury_config" based on treasury.rs
-    [treasuryPda] = PublicKey.findProgramAddressSync([anchor.utils.bytes.utf8.encode("treasury_config")], program.programId);
-
-
-    // Lottery and Ticket PDAs will be derived specifically in their respective tests
-    // due to dependency on dynamic values like drawTime or lastTicketId.
-    // For now, assign temporary placeholders if absolutely needed by other setup code,
-    // but it's better to initialize them properly within each test or a more specific before hook.
-    lotteryPda = Keypair.generate().publicKey; // Temporary placeholder
-    ticketPda = Keypair.generate().publicKey; // Temporary placeholder
-
+    // Treasury PDA for a potential TreasuryConfig account (if used by program)
+    // For now, this is not directly used by core lottery logic but might be for future extensions.
+    // [treasuryConfigPda] = PublicKey.findProgramAddressSync(
+    //   [anchor.utils.bytes.utf8.encode("treasury_config")],
+    //   program.programId
+    // );
 
     // 2. Create USDC Mint
     usdcMint = await createMint(
       provider.connection,
-      payer.payer, // Use payer.payer as Signer (Keypair)
-      authorizedOperator.publicKey, // Mint authority
-      null,                         // Freeze authority (null for none)
-      6,                            // Decimals
-      // TOKEN_PROGRAM_ID // Not needed for createMint
+      payer.payer,
+      authorizedOperator.publicKey,
+      null,
+      6
     );
 
-    // 3. Create ATAs
-    await provider.connection.requestAirdrop(purchaser.publicKey, LAMPORTS_PER_SOL);
+    // 3. Create ATAs for operator and purchaser
+    await provider.connection.requestAirdrop(purchaser.publicKey, LAMPORTS_PER_SOL * 2); // Airdrop SOL to purchaser
 
     operatorUsdcAta = (await getOrCreateAssociatedTokenAccount(provider.connection, payer.payer, usdcMint, authorizedOperator.publicKey)).address;
     purchaserUsdcAta = (await getOrCreateAssociatedTokenAccount(provider.connection, payer.payer, usdcMint, purchaser.publicKey)).address;
     
-    // For PDAs, the owner of the ATA is the PDA itself.
-    // Anchor's program.programId can be an owner if the program itself will own the ATA.
-    // If the lottery account PDA (lotteryPda) owns its ATA, then lotteryPda is the owner.
-    // We cannot create these yet if lotteryPda/treasuryPda are not finalized.
-    // Let's assume these will be created/used by the program instructions when needed,
-    // or we create them specifically in tests that require them once PDAs are known.
+    // Treasury ATA: Owned by the GlobalConfig PDA. This ATA will store the treasury fees.
+    treasuryUsdcAta = await getOrCreateAssociatedTokenAccount(
+        provider.connection,
+        payer.payer, // Payer to create ATA
+        usdcMint,    // Mint
+        configPda,   // Owner of the ATA is the configPda
+        true         // Allow owner off curve (since it's a PDA)
+    ).then(acc => acc.address);
 
-    // For now, if tests need these ATAs to exist for transfers into them:
-    lotteryUsdcAta = getAssociatedTokenAddressSync(usdcMint, program.programId, true, TOKEN_PROGRAM_ID);
-    treasuryUsdcAta = getAssociatedTokenAddressSync(usdcMint, treasuryPda, true, TOKEN_PROGRAM_ID); 
-
-    // Ensure ATAs for program and treasuryPDA exist if program doesn't create them
-    // This is a common pattern for test setup
-    try {
-      await getAccount(provider.connection, lotteryUsdcAta);
-    } catch (error) { // Account not found
-      const tx = new anchor.web3.Transaction().add(
-        createAssociatedTokenAccountInstruction(
-          payer.publicKey,
-          lotteryUsdcAta,
-          program.programId, // Assuming program is the owner
-          usdcMint
-        )
-      );
-      await provider.sendAndConfirm(tx, [payer.payer]);
-    }
-
-    try {
-      await getAccount(provider.connection, treasuryUsdcAta);
-    } catch (error) { // Account not found
-      const tx = new anchor.web3.Transaction().add(
-        createAssociatedTokenAccountInstruction(
-          payer.publicKey,
-          treasuryUsdcAta,
-          treasuryPda, // Assuming treasuryPda is the owner
-          usdcMint
-        )
-      );
-      await provider.sendAndConfirm(tx, [payer.payer]);
-    }
-
+    // lotteryUsdcAta will be created dynamically in tests once lotteryPda is known,
+    // as it's an ATA owned by the lotteryPda.
 
     // 4. Mint USDC to Operator and Purchaser ATAs
     const mintAmount = new BN(1000 * 10**6); // 1000 USDC
@@ -117,40 +86,8 @@ describe("decentralized-lottery", () => {
     // 5. Initialize Config
     // Note: Treasury initialization might be a separate instruction or part of another flow.
     // The provided `initializeConfig` in lib.rs takes admin, usdc_mint, treasury_token_account.
-    // The test calls a version with only authorizedOperator.publicKey. This needs to align.
-    // Assuming the simpler initializeConfig for now.
-    await program.methods.initialize() // Assuming 'initialize' is the correct name from contract for global_config
-      .accounts({
-        globalConfig: configPda,
-        admin: authorizedOperator.publicKey,
-        usdcMint: usdcMint,
-        treasuryTokenAccount: treasuryUsdcAta, // This ATA should be owned by the treasuryPda or admin/program
-        systemProgram: SystemProgram.programId,
-      })
-      .signers([authorizedOperator]) // admin/payer signs
-      .rpc();
-      
-    // Treasury is often initialized implicitly or via a separate instruction.
-    // If InitializeTreasury handler exists:
-    // await program.methods.initializeTreasury(new BN(3600)) // example time_lock_seconds
-    //   .accounts({
-    //     payer: authorizedOperator.publicKey,
-    //     globalConfig: configPda,
-    //     treasury: treasuryPda, // The actual treasury state account PDA
-    //     admin: authorizedOperator.publicKey,
-    //     multisig: authorizedOperator.publicKey, // example multisig
-    //     systemProgram: SystemProgram.programId,
-    //   })
-    //   .signers([authorizedOperator])
-    //   .rpc();
-
-  });
-
-  it("Initialize Config and Treasury", async () => {
-    // This test might be redundant if the `before` hook already initializes.
-    // Or, this could be for a more specific initializeConfig if the program has multiple.
-    // The original test called initializeConfig with different params than the lib.rs version.
-    // For now, this aligns with the `initialize` in lib.rs
+    // The current `initialize` instruction sets `global_config.treasury_token_account`.
+    // This `treasuryUsdcAta` (owned by `configPda`) will be passed to it.
     await program.methods.initialize()
       .accounts({
         globalConfig: configPda,
@@ -159,9 +96,12 @@ describe("decentralized-lottery", () => {
         treasuryTokenAccount: treasuryUsdcAta, 
         systemProgram: SystemProgram.programId,
       })
-      .signers([authorizedOperator as any])
+      .signers([authorizedOperator])
       .rpc();
+  });
 
+  it("Should initialize config correctly", async () => {
+    // Fetch and verify the global config
     const globalConfigAccount = await program.account.globalConfig.fetch(configPda);
     assert.equal(globalConfigAccount.admin.toString(), authorizedOperator.publicKey.toString());
     assert.equal(globalConfigAccount.treasuryTokenAccount.toString(), treasuryUsdcAta.toString());
@@ -170,111 +110,141 @@ describe("decentralized-lottery", () => {
   });
 
 
-  it("Create Lottery", async () => {
-    const currentLotteryType = { daily: {} }; // Match type used in program state
-    const ticketPrice = new BN(1 * 10**6); // 1 USDC
-    const drawTime = new BN(Math.floor((new Date().getTime() + 24 * 60 * 60 * 1000) / 1000)); // Tomorrow
-    const targetPrizePool = new BN(100 * 10**6); // 100 USDC, matches target_prize_pool in contract
+  it("Should create a new lottery", async () => {
+    const drawTime = new BN(Math.floor((Date.now() + defaultDrawTimeOffset) / 1000));
 
-    // The LotteryAccount PDA in the contract is:
-    // seeds = [b"lottery", creator.key().as_ref(), &Clock::get().unwrap().unix_timestamp.to_le_bytes()]
-    // This is non-deterministic from the client side for prediction before creation.
-    // For testing, we must either:
-    // 1. Let the program create it and fetch the address from emitted events or transaction logs.
-    // 2. Use a Keypair for the lottery account if the instruction supports `init` on a Signer account.
-    // The current `CreateLottery` in lib.rs uses `init` with PDA seeds.
-    // So, we have to predict or fetch. Fetching from event is cleaner.
+    // Add an event listener for LotteryCreated event to capture the new lottery Pda
+    let listener = null;
+    const [eventPromise, _listenerId] = new Promise((resolve, reject) => {
+      listener = program.addEventListener("LotteryCreated", (event, slot) => {
+        resolve({ event, slot });
+      });
+    });
+    listenerId = _listenerId; // Store listenerId to remove later
 
-    // For this test, we will generate a new Keypair for the lottery account for the instruction,
-    // if the program's create_lottery was designed to take a Signer for the new lottery account.
-    // However, the program uses PDA seeds for init.
-    // This implies we MUST know the seeds. If one seed is Clock, test prediction is hard.
-    // Workaround: if the program allows `creator` to be different from `authority` in PDA seed.
-    // The current `create_lottery` seeds in lib.rs are:
-    // [b"lottery", creator.key().as_ref(), &Clock::get().unwrap().unix_timestamp.to_le_bytes()]
-    // This makes `lotteryPda` unpredictable before the transaction.
-    // We will call the method and extract the created lotteryPda from events or logs if possible,
-    // or use a fixed PDA if the seeds were made deterministic for testing.
+    // Since lottery Pda depends on Clock, we cannot predict it.
+    // The instruction will create it. We must fetch it or get from event.
+    // The `lotteryAccount` in .accounts() for createLottery is the one being created.
+    // Anchor will handle deriving it if seeds are provided directly in .accounts(),
+    // but here seeds include Clock. We need to pass a "dummy" or predictable key if possible,
+    // or more correctly, ensure the program instruction creates it via its defined PDA logic.
+    // The instruction `create_lottery` uses `init` with `seeds = [b"lottery", creator.key().as_ref(), &Clock::get().unwrap().unix_timestamp.to_le_bytes()]`
+    // This means we cannot pass a pre-derived PDA easily if the timestamp is dynamic.
+    // The solution is typically to use a known seed for testing (e.g. pass timestamp as arg) OR parse from event.
 
-    // For now, we'll use a temporary Keypair if the instruction implies it can create a non-PDA account.
-    // But since it's init with PDA seeds, this is tricky.
-    // The test must align with the program's exact PDA derivation for `lotteryAccount`.
-    // If the program's PDA seed for lottery is based on `creator` and `creation_time` (from Clock),
-    // we cannot deterministically provide `lotteryPda` here before creation.
-    // We'd typically call the method, then inspect the transaction for the created account's address.
+    // For this test, we'll use a temporary keypair for the account to be initialized by the program.
+    // This is a common pattern if the PDA is not easily predictable or if you want the program to fully manage it.
+    // **Correction**: This is not how `init` with PDA seeds works. Anchor expects the PDA to be passed.
+    // The issue is the non-deterministic part (Clock).
+    // We will rely on the event listener.
 
-    // Let's assume we will fetch it or have a way to determine it.
-    // For the purpose of this edit, we will use a temporary keypair approach
-    // and acknowledge this part needs to match the *actual* program logic for PDA.
-    const tempLotteryKeypair = Keypair.generate();
-    lotteryPda = tempLotteryKeypair.publicKey; // This is if the account is a signer
+    // We need a key for `lotteryAccount` that Anchor can use to sign if it were a new Keypair.
+    // But since it's a PDA, Anchor calculates this PDA using the provided seeds.
+    // The problem is `Clock.get()` makes the PDA unpredictable from client for `accounts.lotteryAccount`.
+    // A common pattern: use a known, fixed seed for tests, or pass timestamp as an argument.
+    // If we can't change contract: one approach is to create a dummy PDA seed on client,
+    // then fetch the actual one from event.
+    // For now, let's try to make the seeds in `accounts` as specific as possible,
+    // knowing that the `Clock` part is handled by the runtime.
+    // Anchor TS client can derive PDAs if all seed components *except* bump are known.
+    // However, `Clock.get().unix_timestamp` is not known beforehand.
 
-    // Get the ATA for this new (temporary) lottery Payer
-    const tempLotteryAta = await getOrCreateAssociatedTokenAccount(
-        provider.connection,
-        payer.payer,
-        usdcMint,
-        lotteryPda // The lottery account itself is the authority of its token account
-    );
+    // The `lotteryAccount` field in `program.methods.createLottery().accounts({...})`
+    // expects the PDA that *will be* created. Anchor uses this to build the instruction.
+    // The actual `Clock` value will be used on-chain.
+    // This means the client *cannot* perfectly predict the PDA if `Clock` is a seed component.
+    // The event listener is the most robust way.
+
+    // We will generate a temporary keypair. This is not used by the program for PDA derivation
+    // but is sometimes required by Anchor if it thinks it needs to sign for an `init` account
+    // that isn't a PDA it can derive. This is a bit of a hack for this non-deterministic PDA.
+    const tempLotteryKp = Keypair.generate();
 
 
-    if (ticketPrice.lte(new BN(0))) {
-      throw new Error("Ticket price must be greater than 0");
-    }
-    if (drawTime.lte(new BN(Math.floor(new Date().getTime() / 1000)))) {
-      throw new Error("Draw time must be in the future");
-    }
-
-    await program.methods.createLottery(currentLotteryType, ticketPrice, drawTime, targetPrizePool)
+    await program.methods.createLottery(defaultLotteryType, defaultTicketPrice, drawTime, defaultTargetPrizePool)
       .accounts({
-        lotteryAccount: lotteryPda, // This must be the actual PDA if program uses init with seeds
+        lotteryAccount: tempLotteryKp.publicKey, // Pass a pubkey; program will init its own PDA. Anchor might complain.
+                                               // Ideal: Pass seeds for Anchor to derive, if Clock wasn't used.
         creator: authorizedOperator.publicKey,
         globalConfig: configPda,
         systemProgram: SystemProgram.programId,
+        // clock: SYSVAR_CLOCK_PUBKEY, // If instruction took Clock sysvar explicitly
       })
-      .signers([authorizedOperator]) // Only the creator signs
+      .signers([authorizedOperator])
       .rpc();
-      
-    // After creation, lotteryPda would be known if derived from tx event/logs.
-    // For now, we used tempLotteryKeypair.publicKey which matches the account being created.
+
+    const { event } = await eventPromise as any;
+    await program.removeEventListener(listenerId);
+
+    assert.isNotNull(event, "LotteryCreated event not emitted");
+    lotteryPda = new PublicKey(event.lotteryId); // Set the global lotteryPda from the event
 
     const lotteryAccount = await program.account.lotteryAccount.fetch(lotteryPda);
-    assert.ok(lotteryAccount.lotteryType.daily);
-    assert.equal(lotteryAccount.ticketPrice.toString(), ticketPrice.toString());
+    assert.ok(lotteryAccount.lotteryType.daily); // Assuming defaultLotteryType is daily
+    assert.equal(lotteryAccount.ticketPrice.toString(), defaultTicketPrice.toString());
     assert.equal(lotteryAccount.drawTime.toString(), drawTime.toString());
-    assert.equal(lotteryAccount.targetPrizePool.toString(), targetPrizePool.toString());
+    assert.equal(lotteryAccount.targetPrizePool.toString(), defaultTargetPrizePool.toString());
     assert.ok(lotteryAccount.state.created);
+    assert.isTrue(lotteryAccount.authority.equals(authorizedOperator.publicKey));
+    assert.isTrue(lotteryAccount.globalConfig.equals(configPda));
+
+    // Store the determined lotteryPda for other tests
+    global.lotteryPda = lotteryPda;
   });
 
 
-  it("Buy Ticket", async () => {
-    // Ensure lotteryPda is valid from a previously created lottery for this test to be meaningful
-    // If CreateLottery test uses a temp keypair, this lotteryPda needs to be that one.
+  it("Should allow a user to buy a ticket", async () => {
+    lotteryPda = global.lotteryPda; // Retrieve from global context set by create_lottery
+    assert.isDefined(lotteryPda, "Lottery PDA not set from create_lottery test");
+
+    // First, transition lottery to Open state
+    await program.methods.transitionState({ open: {} })
+        .accounts({
+            lotteryAccount: lotteryPda,
+            admin: authorizedOperator.publicKey,
+            globalConfig: configPda,
+            systemProgram: SystemProgram.programId,
+        })
+        .signers([authorizedOperator])
+        .rpc();
     
     const lotteryAccountBefore = await program.account.lotteryAccount.fetch(lotteryPda);
     const purchaserUsdcAtaBefore = await getAccount(provider.connection, purchaserUsdcAta);
     const currentTicketPrice = lotteryAccountBefore.ticketPrice;
 
-    const ticketSeed = anchor.utils.bytes.utf8.encode("ticket");
-    const lotteryKeyBytes = lotteryPda.toBytes();
+    // Derive ticket PDA
     const nextTicketId = lotteryAccountBefore.lastTicketId.add(new BN(1));
-    const ticketIdBytes = nextTicketId.toBuffer('le', 8);
+    [ticketPda] = PublicKey.findProgramAddressSync(
+        [
+            anchor.utils.bytes.utf8.encode("ticket"),
+            lotteryPda.toBuffer(),
+            nextTicketId.toBuffer('le', 8)
+        ],
+        program.programId
+    );
 
-    [ticketPda] = PublicKey.findProgramAddressSync([ticketSeed, lotteryKeyBytes, ticketIdBytes], program.programId);
+    // Get or create ATA for the lottery Pda
+    lotteryUsdcAta = await getOrCreateAssociatedTokenAccount(
+        provider.connection,
+        payer.payer,
+        usdcMint,
+        lotteryPda, // lotteryPda is the owner of its ATA
+        true
+    ).then(acc => acc.address);
 
-    // The buyTicket in lib.rs does not have token transfer logic yet.
-    // It just updates lottery state and emits event.
-    // It also does not take user_token_account or lottery_token_account.
+
     await program.methods.buyTicket()
       .accounts({
         lotteryAccount: lotteryPda,
         ticketAccount: ticketPda,
-        // userTokenAccount: purchaserUsdcAta, // Not in lib.rs buyTicket
-        // lotteryTokenAccount: lotteryUsdcAta, // Not in lib.rs buyTicket
-        user: purchaser.publicKey, // Renamed from buyer to user in lib.rs
-        globalConfig: configPda, // Added globalConfig as per lib.rs
+        userTokenAccount: purchaserUsdcAta,
+        lotteryTokenAccount: lotteryUsdcAta,
+        user: purchaser.publicKey,
+        globalConfig: configPda,
+        usdcMint: usdcMint, // Added usdcMint
+        tokenProgram: TOKEN_PROGRAM_ID, // Added tokenProgram
+        associatedTokenProgram: anchor.utils.token.ASSOCIATED_PROGRAM_ID, // Added associatedTokenProgram
         systemProgram: SystemProgram.programId,
-        // tokenProgram: TOKEN_PROGRAM_ID, // Not in lib.rs buyTicket
       })
       .signers([purchaser])
       .rpc();
@@ -282,130 +252,404 @@ describe("decentralized-lottery", () => {
     const lotteryAccountAfter = await program.account.lotteryAccount.fetch(lotteryPda);
     const ticketAccount = await program.account.ticketAccount.fetch(ticketPda);
     const purchaserUsdcAtaAfter = await getAccount(provider.connection, purchaserUsdcAta);
+    const lotteryTokenAccountAfter = await getAccount(provider.connection, lotteryUsdcAta);
 
-    assert.isTrue(lotteryAccountAfter.prizePool.gt(lotteryAccountBefore.prizePool));
-    assert.equal(lotteryAccountAfter.prizePool.toString(), lotteryAccountBefore.prizePool.add(currentTicketPrice).toString());
-    assert.isTrue(ticketAccount.buyer.equals(purchaser.publicKey));
-    // Since lib.rs buy_ticket doesn't do token transfer, balance won't change yet.
-    // assert.equal(new BN(purchaserUsdcAtaAfter.amount.toString()).toString(), new BN(purchaserUsdcAtaBefore.amount.toString()).sub(currentTicketPrice).toString());
-    assert.equal(new BN(purchaserUsdcAtaAfter.amount.toString()).toString(), new BN(purchaserUsdcAtaBefore.amount.toString()).toString());
 
+    assert.isTrue(lotteryAccountAfter.prizePool.gt(lotteryAccountBefore.prizePool), "Prize pool should increase");
+    assert.equal(lotteryAccountAfter.prizePool.toString(), lotteryAccountBefore.prizePool.add(currentTicketPrice).toString(), "Prize pool incorrect increase");
+    assert.isTrue(ticketAccount.buyer.equals(purchaser.publicKey), "Ticket buyer not set correctly");
+    assert.equal(lotteryAccountAfter.lastTicketId.toString(), nextTicketId.toString(), "Last ticket ID not updated");
+    assert.equal(lotteryAccountAfter.totalTickets.toString(), lotteryAccountBefore.totalTickets.add(new BN(1)).toString(), "Total tickets not incremented");
+
+    // Check token transfer
+    assert.equal(new BN(purchaserUsdcAtaAfter.amount.toString()).toString(), new BN(purchaserUsdcAtaBefore.amount.toString()).sub(currentTicketPrice).toString(), "Purchaser balance incorrect");
+    assert.equal(new BN(lotteryTokenAccountAfter.amount.toString()).toString(), currentTicketPrice.toString(), "Lottery ATA balance incorrect"); // Assuming it starts from 0 for this lottery
 
   });
 
+  it("Should transition lottery to AwaitingRandomness", async () => {
+    lotteryPda = global.lotteryPda;
+    assert.isDefined(lotteryPda, "Lottery PDA not set");
 
-  it("Execute Draw (Placeholder - Needs Pyth Price Feed Mocking)", async () => {
-    const globalConfigAccount = await program.account.globalConfig.fetch(configPda);
-    // const treasuryFeePercentage = new BN(globalConfigAccount.treasuryFeePercentage); // Not used if no fee transfer
+    // To ensure draw time has passed for the Open -> Drawing transition (which leads to AwaitingRandomness)
+    // We might need to either use a short draw_time in create_lottery for this specific test,
+    // or if Anchor test framework allows, advance the clock.
+    // For now, assume draw_time for global.lotteryPda has passed or is very soon.
+    // If the defaultDrawTimeOffset is long, this test might need to create its own lottery
+    // with a short draw time or wait.
 
-    let treasuryAccountBeforeBalance = new BN(0);
-    // Assuming treasury account might not exist or be part of this flow directly yet.
-    // const treasuryAccountInfoBefore = await getAccount(provider.connection, treasuryUsdcAta).catch(() => null);
-    // if (treasuryAccountInfoBefore) {
-    //   treasuryAccountBeforeBalance = new BN(treasuryAccountInfoBefore.amount.toString());
-    // }
+    // Let's ensure current time is past draw time for the test.
+    // This is tricky with fixed `defaultDrawTimeOffset`.
+    // A better way for tests is to set draw_time to something like `Date.now()/1000 + 2` (2 seconds from now)
+    // and then `await new Promise(resolve => setTimeout(resolve, 3000));`
+    // For now, we'll proceed assuming the global lotteryPda's draw time can be passed.
+    // This might require adjusting the `defaultDrawTimeOffset` to be very short for testing this path,
+    // or creating a new lottery specifically for this test case.
+
+    // Fetch the lottery account to check its draw_time
+    const lotteryAcc = await program.account.lotteryAccount.fetch(lotteryPda);
+    const currentTime = Math.floor(Date.now() / 1000);
+    if (currentTime < lotteryAcc.drawTime.toNumber()) {
+        console.log(`Draw time (${lotteryAcc.drawTime.toNumber()}) is in the future. Waiting...`);
+        await new Promise(resolve => setTimeout(resolve, (lotteryAcc.drawTime.toNumber() - currentTime + 1) * 1000));
+    }
     
-    const lotteryAccountBeforeDraw = await program.account.lotteryAccount.fetch(lotteryPda);
-
-    // The select_winner instruction in lib.rs is admin-only and doesn't involve Pyth or token transfers yet.
-    // It just sets state and emits event.
-    await program.methods.selectWinner()
-      .accounts({
-        lotteryAccount: lotteryPda,
-        globalConfig: configPda,
-        admin: authorizedOperator.publicKey,
-        systemProgram: SystemProgram.programId, // Added as per lib.rs SelectWinner
-        // pythPriceFeed: pythPriceFeed.publicKey, // Not in lib.rs select_winner
-        // lotteryUsdcAta: lotteryUsdcAta, // Not in lib.rs select_winner
-        // treasuryUsdcAta: treasuryUsdcAta, // Not in lib.rs select_winner
-        // tokenProgram: TOKEN_PROGRAM_ID, // Not in lib.rs select_winner
-        // clock: SYSVAR_CLOCK_PUBKEY, // Not in lib.rs select_winner
-      })
-      .signers([authorizedOperator])
-      .rpc();
-
-    const lotteryAccountAfterDraw = await program.account.lotteryAccount.fetch(lotteryPda);
-    // let treasuryAccountAfterBalance = new BN(0);
-    // const treasuryAccountInfoAfter = await getAccount(provider.connection, treasuryUsdcAta).catch(() => null);
-    // if (treasuryAccountInfoAfter) {
-    //   treasuryAccountAfterBalance = new BN(treasuryAccountInfoAfter.amount.toString());
-    // }
-
-    assert.ok(lotteryAccountAfterDraw.state.completed); 
-    // winning_ticket in lib.rs is Option<Pubkey>, not numbers. select_winner doesn't set it yet.
-    // assert.isTrue(lotteryAccountAfterDraw.winningTicket !== null); 
-    // No treasury fee transfer in lib.rs select_winner yet.
-    // assert.isTrue(treasuryAccountAfterBalance.gt(treasuryAccountBeforeBalance)); 
-  });
-
-  it("Distribute Prize (Placeholder - Needs Winning Logic & More Tickets)", async () => {
-    // This test assumes select_winner has run and set a winning_ticket PDA in lotteryAccount.
-    // The current lib.rs select_winner does not set lotteryAccount.winning_ticket.
-    // The ClaimPrize instruction in lib.rs has constraints that will fail if winning_ticket is None.
-    
-    // For this test to pass, we would need:
-    // 1. select_winner to actually store the winning_ticket PDA.
-    // 2. The ticketPda used here to match that stored winning_ticket.
-    // 3. The 'winner' (purchaser) to be the buyer of that ticketPda.
-
-    // Placeholder: manually set lottery's winning_ticket to ticketPda for test if possible (not via client)
-    // Or ensure select_winner correctly sets it and we use that.
-
-    const winnerUsdcAta = purchaserUsdcAta; 
-    const lotteryAccountBeforeDistribute = await program.account.lotteryAccount.fetch(lotteryPda);
-    const winnerUsdcAtaBalanceBefore = await getAccount(provider.connection, winnerUsdcAta);
-
-    // The claim_prize in lib.rs doesn't do token transfers yet.
-    // It has constraints for winning_ticket which is not set by current select_winner.
-    // This test will likely fail due to those constraints or lack of token transfer.
-    try {
-        await program.methods.claimPrize()
+    await program.methods.transitionState({ drawing: {} }) // Target "Drawing" which program logic turns to "AwaitingRandomness"
         .accounts({
             lotteryAccount: lotteryPda,
-            ticketAccount: ticketPda, // This must be the *actual* winning ticket PDA
-            winner: purchaser.publicKey,
-            // winnerTokenAccount: winnerUsdcAta, // Not in lib.rs ClaimPrize
-            // lotteryTokenAccount: lotteryUsdcAta, // Not in lib.rs ClaimPrize
-            globalConfig: configPda, 
-            // treasuryTokenAccount: treasuryUsdcAta, // Not in lib.rs ClaimPrize
-            systemProgram: SystemProgram.programId, // Added as per lib.rs ClaimPrize
-            // tokenProgram: TOKEN_PROGRAM_ID, // Not in lib.rs ClaimPrize
+            admin: authorizedOperator.publicKey,
+            globalConfig: configPda,
+            systemProgram: SystemProgram.programId,
+            // clock: SYSVAR_CLOCK_PUBKEY, // If instruction needs it explicitly
         })
-        .signers([purchaser]) 
+        .signers([authorizedOperator])
         .rpc();
 
-        const ticketAccountAfterPrizeClaim = await program.account.ticketAccount.fetch(ticketPda);
-        const lotteryAccountAfterDistribute = await program.account.lotteryAccount.fetch(lotteryPda);
-        const winnerUsdcAtaBalanceAfter = await getAccount(provider.connection, winnerUsdcAta);
+    const updatedLotteryAccount = await program.account.lotteryAccount.fetch(lotteryPda);
+    assert.ok(updatedLotteryAccount.state.awaitingRandomness, "Lottery state should be AwaitingRandomness");
+    assert.isNotNull(updatedLotteryAccount.vrfRequestKey, "VRF request key should be set");
+    // Assuming vrf_client was set during creation or a default one is used by the contract for now
+    // For this test, vrf_request_key gets set to vrf_client in transition_state.rs
+    assert.isTrue(updatedLotteryAccount.vrfRequestKey.equals(updatedLotteryAccount.vrfClient), "VRF request key should match VRF client");
+    assert.isFalse(updatedLotteryAccount.randomnessFulfilled, "Randomness should not be fulfilled yet");
+  });
 
-        assert.isTrue(ticketAccountAfterPrizeClaim.isClaimed);
-        // No prize pool change if no transfer in lib.rs claim_prize
-        // assert.isTrue(lotteryAccountAfterDistribute.prizePool.lt(lotteryAccountBeforeDistribute.prizePool)); 
-        // No balance change if no transfer
-        // assert.isTrue(new BN(winnerUsdcAtaBalanceAfter.amount.toString()).gt(new BN(winnerUsdcAtaBalanceBefore.amount.toString()))); 
+  it("Should settle randomness (mocked)", async () => {
+    lotteryPda = global.lotteryPda;
+    assert.isDefined(lotteryPda, "Lottery PDA not set");
 
-    } catch(error) {
-        console.error("Claim prize test failed (expected if winning_ticket not set or no transfers):", error);
-        // Allow test to pass if failure is due to known missing logic in contract
+    const lotteryAccBefore = await program.account.lotteryAccount.fetch(lotteryPda);
+    assert.ok(lotteryAccBefore.state.awaitingRandomness, "Lottery must be in AwaitingRandomness state");
+    assert.isNotNull(lotteryAccBefore.vrfRequestKey, "VRF request key must be set");
+
+    // The settle_randomness instruction expects `vrf_account` to match `lotteryAccount.vrf_request_key`.
+    // In our current mock setup, `vrf_request_key` is set to `lotteryAccount.vrf_client`.
+    // So, we pass `lotteryAccount.vrf_client` as the `vrf_account`.
+    // This account doesn't need to be a real Switchboard VRF account for this mocked test,
+    // as the instruction handler currently simulates randomness.
+    // It just needs to be a valid pubkey that matches.
+    const mockVrfAccountKey = lotteryAccBefore.vrfClient;
+    if (!mockVrfAccountKey) {
+        throw new Error("LotteryAccount.vrfClient (used as mockVrfAccountKey) is not set. Ensure it's set during lottery creation or transition.");
+    }
+
+    await program.methods.settleRandomness()
+        .accounts({
+            lotteryAccount: lotteryPda,
+            vrfAccount: mockVrfAccountKey, // Pass the key that matches vrf_request_key
+        })
+        // No explicit signers needed if instruction doesn't require them beyond PDA checks
+        .rpc();
+
+    const updatedLotteryAccount = await program.account.lotteryAccount.fetch(lotteryPda);
+    assert.ok(updatedLotteryAccount.state.completed, "Lottery state should be Completed");
+    assert.isNotNull(updatedLotteryAccount.vrfRandomness, "VRF randomness should be set");
+    const expectedRandomness = new BN(updatedLotteryAccount.completedAt.toBuffer('le',8).slice(0,8)).toBuffer('le',32);
+    // The mock randomness in contract is:
+    // clock.unix_timestamp.to_le_bytes()[0..8].try_into().unwrap_or_default().repeat(4).try_into().unwrap_or_default();
+    // This is hard to replicate perfectly without knowing the exact `completed_at` timestamp used by the contract call.
+    // For now, we'll just check it's not null and has length 32.
+    assert.equal(updatedLotteryAccount.vrfRandomness.length, 32, "Randomness byte array length incorrect");
+    assert.isTrue(updatedLotteryAccount.randomnessFulfilled, "Randomness should be fulfilled");
+  });
+
+  it("Should select a winner (after mocked randomness)", async () => {
+    lotteryPda = global.lotteryPda;
+    assert.isDefined(lotteryPda, "Lottery PDA not set");
+
+    const lotteryAcc = await program.account.lotteryAccount.fetch(lotteryPda);
+    assert.ok(lotteryAcc.state.completed, "Lottery must be in Completed state");
+    assert.isTrue(lotteryAcc.randomnessFulfilled, "Randomness must be fulfilled");
+    assert.isNotNull(lotteryAcc.vrfRandomness, "VRF randomness must be set");
+    assert.isNull(lotteryAcc.winningTicket, "Winning ticket should not be set yet");
+
+    await program.methods.selectWinner()
+        .accounts({
+            lotteryAccount: lotteryPda,
+            systemProgram: SystemProgram.programId,
+        })
+        // .signers([authorizedOperator]) // If admin signature is required
+        .rpc();
+
+    const updatedLotteryAccount = await program.account.lotteryAccount.fetch(lotteryPda);
+    assert.isNotNull(updatedLotteryAccount.winningTicket, "Winning ticket should be set");
+
+    // Verify the winning ticket PDA
+    const randomnessBytes = Uint8Array.from(updatedLotteryAccount.vrfRandomness);
+    const randomValue = new BN(randomnessBytes.slice(0, 8), 'le'); // Extract u64 from first 8 bytes
+    const totalTickets = updatedLotteryAccount.totalTickets;
+
+    if (totalTickets.eq(new BN(0))) {
+        throw new Error("Cannot select winner if no tickets were sold.");
+    }
+
+    const winningTicketIdNum = randomValue.mod(totalTickets).toNumber(); // This gives 0 to N-1
+    // The ticket IDs in contract are 1-based if last_ticket_id starts at 0 and increments before assigning.
+    // Current buy_ticket: nextTicketId = last_ticket_id + 1; then ticket_account.id = nextTicketId.
+    // So ticket IDs are 1, 2, ...
+    // select_winner.rs: winning_ticket_id = (random_value % lottery_account.total_tickets) + 1;
+    // This is 1-based.
+
+    const winningTicketId = randomValue.mod(totalTickets).add(new BN(1));
+
+
+    const [expectedWinningTicketPda] = PublicKey.findProgramAddressSync(
+        [
+            anchor.utils.bytes.utf8.encode("ticket"),
+            lotteryPda.toBuffer(),
+            winningTicketId.toBuffer('le', 8)
+        ],
+        program.programId
+    );
+
+    assert.isTrue(updatedLotteryAccount.winningTicket.equals(expectedWinningTicketPda), "Winning ticket PDA mismatch");
+    console.log("Selected winning ticket ID:", winningTicketId.toString());
+    console.log("Winning ticket PDA:", updatedLotteryAccount.winningTicket.toBase58());
+  });
+
+  // Placeholder for Claim Prize test - to be updated
+  it("Distribute Prize (Placeholder - Needs Winning Logic & More Tickets)", async () => {
+    lotteryPda = global.lotteryPda; // from previous test
+    assert.isDefined(lotteryPda, "Lottery PDA not set");
+
+    const lotteryAccount = await program.account.lotteryAccount.fetch(lotteryPda);
+    assert.ok(lotteryAccount.state.completed, "Lottery must be completed to claim prize");
+    assert.isNotNull(lotteryAccount.winningTicket, "Winning ticket must be selected");
+
+    // This requires knowing the actual winner (purchaser) of the winningTicketPda.
+    // For this test, we'll assume the 'purchaser' from the 'Buy Ticket' test is the winner.
+    // This means the 'Buy Ticket' test must have bought the ticket that ends up winning.
+    // This makes the test flaky if randomness changes.
+    // A robust test would:
+    // 1. Buy multiple tickets from different purchasers.
+    // 2. After selectWinner, fetch the winningTicketPda.
+    // 3. Fetch the TicketAccount for winningTicketPda to find the actual buyer.
+    // 4. That buyer then calls claimPrize.
+
+    // For now, let's assume 'purchaser' is the winner and 'ticketPda' (from buy_ticket test) is the winning one.
+    // This implies the mocked randomness must select the ticket bought by 'purchaser'.
+    // This is a significant simplification and might often fail.
+    // We need to make sure that `ticketPda` (which is the last ticket bought in `buy_ticket` test)
+    // is actually selected as the winner by `select_winner` test.
+    // The current `select_winner` test calculates `expectedWinningTicketPda`. We should use that.
+    
+    const winningTicketAccountPda = lotteryAccount.winningTicket;
+    const winningTicketAccount = await program.account.ticketAccount.fetch(winningTicketAccountPda);
+    const winnerPurchaser = Keypair.fromSecretKey(purchaser.secretKey); // Assuming 'purchaser' is the one who bought winning ticket
+
+    const winnerUsdcAta = await getOrCreateAssociatedTokenAccount(
+        provider.connection, payer.payer, usdcMint, winnerPurchaser.publicKey
+    ).then(acc => acc.address);
+
+    const lotteryTokenAccountAta = await getOrCreateAssociatedTokenAccount(
+        provider.connection, payer.payer, usdcMint, lotteryPda, true
+    ).then(acc => acc.address);
+
+    const treasuryAta = treasuryUsdcAta; // from before() block, owned by configPda
+
+    const winnerUsdcBalanceBefore = (await getAccount(provider.connection, winnerUsdcAta)).amount;
+    const lotteryAtaBalanceBefore = (await getAccount(provider.connection, lotteryTokenAccountAta)).amount;
+    const treasuryAtaBalanceBefore = (await getAccount(provider.connection, treasuryAta)).amount;
+
+
+    await program.methods.claimPrize()
+        .accounts({
+            lotteryAccount: lotteryPda,
+            ticketAccount: winningTicketAccountPda,
+            winner: winnerPurchaser.publicKey,
+            winnerTokenAccount: winnerUsdcAta,
+            lotteryTokenAccount: lotteryTokenAccountAta,
+            globalConfig: configPda, 
+            treasuryTokenAccount: treasuryAta,
+            usdcMint: usdcMint, // Added
+            tokenProgram: TOKEN_PROGRAM_ID, // Added
+            systemProgram: SystemProgram.programId,
+        })
+        .signers([winnerPurchaser])
+        .rpc();
+
+    const ticketAccountAfterPrizeClaim = await program.account.ticketAccount.fetch(winningTicketAccountPda);
+    const lotteryAccountAfterDistribute = await program.account.lotteryAccount.fetch(lotteryPda);
+    const winnerUsdcBalanceAfter = (await getAccount(provider.connection, winnerUsdcAta)).amount;
+    const lotteryAtaBalanceAfter = (await getAccount(provider.connection, lotteryTokenAccountAta)).amount;
+    const treasuryAtaBalanceAfter = (await getAccount(provider.connection, treasuryAta)).amount;
+
+
+    assert.isTrue(ticketAccountAfterPrizeClaim.isClaimed, "Ticket should be marked claimed");
+    assert.isTrue(lotteryAccountAfterDistribute.isClaimed, "Lottery should be marked claimed");
+
+    const globalConfig = await program.account.globalConfig.fetch(configPda);
+    const prizePool = lotteryAccount.prizePool; // Prize pool before any distribution
+    const treasuryFee = prizePool.mul(new BN(globalConfig.treasuryFeePercentage)).div(new BN(10000));
+    const winnerPayout = prizePool.sub(treasuryFee);
+
+    assert.equal(lotteryAtaBalanceAfter.toString(), new BN(0).toString(), "Lottery ATA should be empty after prize distribution"); // Assuming full distribution
+    assert.equal(treasuryAtaBalanceAfter.toString(), new BN(treasuryAtaBalanceBefore).add(treasuryFee).toString(), "Treasury balance incorrect");
+    assert.equal(winnerUsdcBalanceAfter.toString(), new BN(winnerUsdcBalanceBefore).add(winnerPayout).toString(), "Winner balance incorrect");
+
+  });
+
+
+  it("Should allow admin to update config", async () => {
+    const newUsdcMint = await createMint(provider.connection, payer.payer, authorizedOperator.publicKey, null, 6);
+    const newTreasuryAta = await getOrCreateAssociatedTokenAccount(provider.connection, payer.payer, newUsdcMint, configPda, true)
+        .then(acc => acc.address);
+
+    await program.methods.updateConfig()
+        .accounts({
+            globalConfig: configPda,
+            admin: authorizedOperator.publicKey,
+            newUsdcMint: newUsdcMint,
+            newTreasuryTokenAccount: newTreasuryAta,
+        })
+        .signers([authorizedOperator])
+        .rpc();
+
+    const updatedConfig = await program.account.globalConfig.fetch(configPda);
+    assert.isTrue(updatedConfig.usdcMint.equals(newUsdcMint), "USDC Mint not updated");
+    assert.isTrue(updatedConfig.treasuryTokenAccount.equals(newTreasuryAta), "Treasury token account not updated");
+    // assert.equal(updatedConfig.treasuryFeePercentage, newFeePercentage); // If fee was also updatable
+  });
+
+
+  // --- ERROR HANDLING AND EDGE CASE TESTS ---
+  it("Should prevent buying ticket if lottery not Open", async () => {
+    lotteryPda = global.lotteryPda; // Assumes this lottery is now 'Completed' or some other non-Open state
+    assert.isDefined(lotteryPda, "Lottery PDA not set");
+
+    const lotteryAcc = await program.account.lotteryAccount.fetch(lotteryPda);
+    if (lotteryAcc.state.open) {
+        // If it's somehow Open, transition it to something else for this test
+        await program.methods.transitionState({ drawing: {} }) // Example: to AwaitingRandomness
+            .accounts({
+                lotteryAccount: lotteryPda, admin: authorizedOperator.publicKey, globalConfig: configPda, systemProgram: SystemProgram.programId
+            }).signers([authorizedOperator]).rpc();
+    }
+    
+    const nonOpenLottery = await program.account.lotteryAccount.fetch(lotteryPda);
+    assert.isFalse(nonOpenLottery.state.open, "Lottery should not be in Open state for this test");
+
+    const tempTicketPda = Keypair.generate().publicKey; // Dummy PDA for this attempt
+
+    try {
+        await program.methods.buyTicket()
+          .accounts({
+            lotteryAccount: lotteryPda,
+            ticketAccount: tempTicketPda, // This PDA won't actually be created
+            userTokenAccount: purchaserUsdcAta,
+            lotteryTokenAccount: lotteryUsdcAta, // Needs to be the actual ATA for lotteryPda
+            user: purchaser.publicKey,
+            globalConfig: configPda,
+            usdcMint: usdcMint,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            associatedTokenProgram: anchor.utils.token.ASSOCIATED_PROGRAM_ID,
+            systemProgram: SystemProgram.programId,
+          })
+          .signers([purchaser])
+          .rpc();
+        assert.fail("Should have failed to buy ticket for non-Open lottery");
+    } catch (error) {
+        assert.include(error.message, "LotteryNotOpen", "Error message should indicate lottery not open");
     }
   });
 
-  it("Add Authorized Operator", async () => {
-    // The lib.rs does not have an addAuthorizedOperator instruction.
-    // The GlobalConfig has an `admin` field, set during `initialize`.
-    // If this test is for a feature that should exist, the instruction needs to be added to the program.
+  it("Should prevent settling randomness if not AwaitingRandomness", async () => {
+    // This requires a lottery NOT in AwaitingRandomness. The global.lotteryPda is likely Completed.
+    lotteryPda = global.lotteryPda;
+     assert.isDefined(lotteryPda, "Lottery PDA not set");
 
-    // Assuming this test refers to checking the initial admin.
-    const globalConfigAccount = await program.account.globalConfig.fetch(configPda);
-    assert.equal(globalConfigAccount.admin.toString(), authorizedOperator.publicKey.toString());
-    
-    // If there was an array `authorizedOperators`:
-    // assert.equal(globalConfigAccount.authorizedOperators[0].toString(), authorizedOperator.publicKey.toString());
+    const lotteryAcc = await program.account.lotteryAccount.fetch(lotteryPda);
+    if (lotteryAcc.state.awaitingRandomness) {
+         // If it is AwaitingRandomness, transition it for the test
+        await program.methods.transitionState({ completed: {} }) // Example: force to Completed
+            .accounts({
+                lotteryAccount: lotteryPda, admin: authorizedOperator.publicKey, globalConfig: configPda, systemProgram: SystemProgram.programId
+            }).signers([authorizedOperator]).rpc();
+    }
+    const nonAwaitingLottery = await program.account.lotteryAccount.fetch(lotteryPda);
+    assert.isFalse(nonAwaitingLottery.state.awaitingRandomness, "Lottery should not be AwaitingRandomness for this test");
+
+    const mockVrfAccountKey = nonAwaitingLottery.vrfClient || Keypair.generate().publicKey;
+
+
+    try {
+        await program.methods.settleRandomness()
+            .accounts({
+                lotteryAccount: lotteryPda,
+                vrfAccount: mockVrfAccountKey,
+            })
+            .rpc();
+        assert.fail("Should have failed to settle randomness for lottery not in AwaitingRandomness state");
+    } catch (error) {
+        assert.include(error.message, "InvalidLotteryState", "Error message should indicate invalid lottery state");
+    }
   });
 
-  // Add more tests for:
-  // - Recycle Unclaimed Prize (after time passes and no claim)
-  // - Treasury Withdrawal (after timelock and by authorized operator)
-  // - Error cases and validations
+  it("Should prevent selecting winner if randomness not fulfilled", async () => {
+    // Create a new lottery, transition to Open, then to AwaitingRandomness, but DON'T settle.
+    const drawTimeShort = new BN(Math.floor((Date.now() + 5000) / 1000)); // 5 seconds from now
+    let tempLotteryPda;
 
+    let listener = null;
+    const [eventPromise, _listenerId] = new Promise((resolve, reject) => {
+      listener = program.addEventListener("LotteryCreated", (event, slot) => {
+        resolve({ event, slot });
+      });
+    });
+    listenerId = _listenerId;
+
+    const tempLotteryKp = Keypair.generate();
+    await program.methods.createLottery(defaultLotteryType, defaultTicketPrice, drawTimeShort, defaultTargetPrizePool)
+      .accounts({ lotteryAccount: tempLotteryKp.publicKey, creator: authorizedOperator.publicKey, globalConfig: configPda, systemProgram: SystemProgram.programId })
+      .signers([authorizedOperator]).rpc();
+
+    const { event } = await eventPromise as any;
+    await program.removeEventListener(listenerId);
+    tempLotteryPda = new PublicKey(event.lotteryId);
+
+    await program.methods.transitionState({ open: {} })
+        .accounts({ lotteryAccount: tempLotteryPda, admin: authorizedOperator.publicKey, globalConfig: configPda, systemProgram: SystemProgram.programId })
+        .signers([authorizedOperator]).rpc();
+
+    // Wait for draw time to pass
+    await new Promise(resolve => setTimeout(resolve, 6000));
+
+    await program.methods.transitionState({ drawing: {} }) // To AwaitingRandomness
+        .accounts({ lotteryAccount: tempLotteryPda, admin: authorizedOperator.publicKey, globalConfig: configPda, systemProgram: SystemProgram.programId })
+        .signers([authorizedOperator]).rpc();
+
+    const lotteryToTest = await program.account.lotteryAccount.fetch(tempLotteryPda);
+    assert.ok(lotteryToTest.state.awaitingRandomness, "Lottery should be AwaitingRandomness");
+    assert.isFalse(lotteryToTest.randomnessFulfilled, "Randomness should not be fulfilled");
+
+    // Now, try to transition to Completed (which select_winner expects) *without* fulfilling randomness
+    // This transition will fail if settle_randomness is the only way to Completed
+    // Or if admin forces it, the select_winner check for randomnessFulfilled should catch it.
+    // Let's assume admin *could* force it to Completed (though current transition_state may not allow this if no randomness)
+    // For this test, better to try select_winner while it's AwaitingRandomness and randomness_fulfilled = false.
+    // The select_winner instruction has constraint `lottery_account.state == LotteryState::Completed`.
+    // So, we first need to manually (as admin) try to push it to Completed without randomness.
+    // The transition AwaitingRandomness -> Completed currently checks `randomness_fulfilled`.
+    // So, the select_winner instruction's own constraint `randomness_fulfilled` will be the one tested if state somehow becomes Completed.
+
+    // This test setup is a bit tricky. The easiest is to ensure select_winner fails if randomness_fulfilled is false.
+    // If the state cannot be `Completed` without `randomness_fulfilled` due to `transition_state` logic,
+    // then the `select_winner` constraint `randomness_fulfilled` might be redundant with `state == Completed`
+    // if `Completed` implies `randomness_fulfilled`.
+
+    // Test calling select_winner when state is AwaitingRandomness (should fail due to state constraint)
+    try {
+        await program.methods.selectWinner()
+            .accounts({ lotteryAccount: tempLotteryPda, systemProgram: SystemProgram.programId })
+            .rpc();
+        assert.fail("Should fail if state is not Completed");
+    } catch(e) {
+        assert.include(e.message, "InvalidLotteryState");
+    }
+
+    // If we could force state to Completed with randomnessFulfilled = false (not possible with current transition rules):
+    // Manually update account state for test (not standard) OR modify contract to allow this path for testing.
+    // For now, this aspect (select_winner when Completed but !randomness_fulfilled) is hard to test cleanly.
+    // The existing constraints on select_winner (state==Completed, randomnessFulfilled==true) are good.
+  });
 });

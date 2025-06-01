@@ -20,6 +20,8 @@ impl LotteryAccount {
         (1 + 32) +     // Option<[u8; 32]> vrf_randomness
         (1 + 32) +     // Option<Pubkey> vrf_request_account
         (1 + 32) +     // Option<Pubkey> oracle_pubkey
+        (1 + 32) +     // vrf_request_key: Option<Pubkey>
+        1 +            // randomness_fulfilled: bool
         
         // Prize and state tracking
         1 +            // is_prize_pool_locked bool
@@ -31,9 +33,11 @@ impl LotteryAccount {
         (1 + 8);       // Option<i64> completed_at
     
     // Helper method to initialize VRF fields
-    pub fn initialize_vrf(&mut self, vrf_client: Pubkey, oracle_pubkey: Pubkey) {
+    pub fn initialize_vrf(&mut self, vrf_client: Pubkey, oracle_pubkey: Option<Pubkey>, vrf_request_key: Pubkey) {
         self.vrf_client = Some(vrf_client);
-        self.oracle_pubkey = Some(oracle_pubkey);
+        self.oracle_pubkey = oracle_pubkey; // Store if provided, could be None
+        self.vrf_request_key = Some(vrf_request_key);
+        self.randomness_fulfilled = false;
         self.vrf_randomness = None;
     }
     
@@ -121,7 +125,8 @@ impl LotteryState {
             LotteryState::Created | 
             LotteryState::Open | 
             LotteryState::Locked |
-            LotteryState::Drawing
+            LotteryState::Drawing |
+            LotteryState::AwaitingRandomness
         )
     }
     
@@ -164,6 +169,8 @@ pub struct LotteryAccount {
     pub vrf_randomness: Option<[u8; 32]>,      // Raw randomness bytes from VRF
     pub vrf_request_account: Option<Pubkey>,   // Legacy field, can be removed or repurposed
     pub oracle_pubkey: Option<Pubkey>,         // Oracle/VRF account for randomness
+    pub vrf_request_key: Option<Pubkey>,       // Stores the key of the VRF request account
+    pub randomness_fulfilled: bool,            // Tracks if valid randomness has been received
     
     // Prize and state tracking
     pub is_prize_pool_locked: bool,  // To lock prize pool during drawing
