@@ -1,18 +1,18 @@
 [toolchain]
-anchor_version = "0.28.0"
+anchor_version = "0.30.1"
 
 [features]
 resolution = true
 skip-lint = false
 
 [programs.devnet]
-decentralized_lottery = "F1pffGp4n5qyNRcCnpoTH5CEfVKQEGxAxmRuRScUw4tz"
+decentralized_lottery = "9SL8XkX3pvqZ2fjiLMhCFfQn7Gfmpd9ru8rtHFsAPVgq"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "devnet"
+cluster = "Devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

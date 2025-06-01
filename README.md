@@ -54,3 +54,21 @@ If you encounter any issues:
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details. 
+
+Program Authority/Owner:
+Program Owner: BPFLoaderUpgradeab1e11111111111111111111111 (Solana's BPF Loader)
+Program Authority: 7Q3UBDfjZgNJNCQBdJrji33f2FvtJ1z3DErcAV6hFsf4 (Your wallet that deployed it)
+Treasury Configuration:
+Let me check what treasury accounts are configured in the system:
+Perfect! Here are the key IDs for your lottery system:
+Owner/Authority IDs:
+Program Authority: 7Q3UBDfjZgNJNCQBdJrji33f2FvtJ1z3DErcAV6hFsf4 (Your deployer wallet)
+Admin Wallet: 7Q3UBDfjZgNJNCQBdJrji33f2FvtJ1z3DErcAV6hFsf4 (Same as authority - can manage lotteries)
+Program Owner: BPFLoaderUpgradeab1e11111111111111111111111 (Solana BPF Loader)
+Treasury IDs:
+Treasury Wallet: 7Q3UBDfjZgNJNCQBdJrji33f2FvtJ1z3DErcAV6hFsf4 (Defaults to admin wallet)
+USDC Mint: Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr (Devnet USDC)
+System Configuration:
+Global Config PDA: Derived from ["global_config"] + program ID
+Treasury Fee: 2.5% (250 basis points)
+Network: Devnet

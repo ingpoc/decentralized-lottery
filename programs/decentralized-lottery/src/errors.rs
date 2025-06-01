@@ -43,6 +43,8 @@ pub enum LotteryError {
     TokenTransferFailed,
     #[msg("Invalid token account")]
     InvalidTokenAccount,
+    #[msg("Invalid token mint")]
+    InvalidTokenMint,
     #[msg("Oracle price feed error")]
     OraclePriceFeedError,
     #[msg("Randomness generation failed")]
@@ -69,4 +71,34 @@ pub enum LotteryError {
     TicketAlreadyClaimed,
     #[msg("Lottery is not in a state where refunds can be claimed (must be Cancelled or Expired).")]
     InvalidStateForRefund,
+    #[msg("The input parameters are invalid.")]
+    InvalidInput,
+    #[msg("The ticket sale has ended.")]
+    TicketSaleEnded,
+    #[msg("The lottery has already been drawn.")]
+    LotteryAlreadyDrawn,
+    #[msg("There are no tickets in this lottery.")]
+    NoTickets,
+    #[msg("Insufficient tickets sold to proceed with the draw.")]
+    InsufficientTicketsSold,
+    #[msg("The lottery has not been drawn yet.")]
+    LotteryNotDrawn,
+    #[msg("The specified ticket is not eligible for refund.")]
+    TicketNotEligibleForRefund,
+    #[msg("The lottery has not expired yet.")]
+    LotteryNotExpired,
+    #[msg("VRF account is invalid.")]
+    InvalidVrfAccount,
+    #[msg("Insufficient funds for this operation.")]
+    InsufficientFunds,
+    #[msg("Arithmetic overflow error.")]
+    ArithmeticOverflow,
+    #[msg("Ticket does not belong to this lottery.")]
+    TicketNotForThisLottery,
+    #[msg("No winner has been selected yet.")]
+    NoWinnerSelected,
+    #[msg("The prize pool is empty.")]
+    EmptyPrizePool,
+    #[msg("Insufficient funds in the prize pool.")]
+    InsufficientPrizeFunds,
 }

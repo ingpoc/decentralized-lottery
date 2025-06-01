@@ -39,7 +39,7 @@ try {
 // Load the program ID from the IDL file
 const idlFile = path.join(__dirname, '../target/idl/decentralized_lottery.json');
 const idl = JSON.parse(fs.readFileSync(idlFile, 'utf8'));
-const programId = new PublicKey(idl.address || 'F1pffGp4n5qyNRcCnpoTH5CEfVKQEGxAxmRuRScUw4tz');
+const programId = new PublicKey(idl.address || '7my34Pj4c96UfSieKESvNZ8napKonpZAiBxUum1VbGS3');
 
 // The new USDC mint address
 const NEW_USDC_MINT = new PublicKey('Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr');

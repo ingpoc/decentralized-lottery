@@ -1,11 +1,12 @@
 // src/state/mod.rs
 
 pub mod lottery;
-pub mod treasury;
 pub mod ticket;
-pub mod vrf;
+pub mod treasury;
+// Comment out VRF module for now
+// pub mod vrf;
 
 pub use lottery::*;
-pub use treasury::*;
 pub use ticket::*;
-pub use vrf::*;
+pub use treasury::*;
+// pub use vrf::*;

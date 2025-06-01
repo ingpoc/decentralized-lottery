@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Transfer};
+use anchor_spl::token::{self, Token, Transfer, TokenAccount};
 use crate::state::lottery::{LotteryAccount, LotteryState};
 use crate::state::ticket::TicketAccount;
 use crate::state::treasury::GlobalConfig;
@@ -37,44 +37,49 @@ pub struct ClaimPrize<'info> {
     )]
     /// The ticket account of the winning ticket.
     /// PDA Derivation Validation:
-    /// - Ensures the provided ticket account matches the derived PDA based on lottery key and ticket ID.
-    /// - Validates that only the legitimate winning ticket, as recorded in the lottery account, can claim the prize.
+    /// - `seeds = [b"ticket", lottery_account.key().as_ref(), &ticket_account.id.to_le_bytes()]`
+    ///   Uses the lottery account key and the ticket ID to derive the PDA.
+    /// - `bump = ticket_account.bump`
+    ///   Uses the bump stored within the ticket account itself to validate the PDA.
+    /// Rationale: This approach ensures that the ticket PDA derivation is both consistent and secure, preventing the use of fraudulent or mismatched ticket accounts.
     pub ticket_account: Account<'info, TicketAccount>,
 
-    #[account(
-        // No constraints needed here as admin/authority is checked via global_config
-        seeds = [b"global_config"], 
-        bump
-    )]
-    pub global_config: Account<'info, GlobalConfig>,
-
+    /// Treasury token account for collecting fees
     #[account(
         mut,
-        // Ensure the treasury token account matches the one in global config
-        address = global_config.treasury_token_account @ LotteryError::InvalidTokenAccount 
+        constraint = treasury_token_account.mint == global_config.usdc_mint @ LotteryError::InvalidTokenAccount,
+        constraint = treasury_token_account.key() == global_config.treasury_token_account @ LotteryError::InvalidTokenAccount
     )]
     pub treasury_token_account: Account<'info, TokenAccount>,
 
+    /// Lottery's token account (source of prize funds)
     #[account(
         mut,
-        // Ensure the lottery token account holds the prize pool
-        // constraint = lottery_token_account.owner == lottery_account.key() @ LotteryError::InvalidAccountOwner, // Authority is lottery_account PDA
         constraint = lottery_token_account.mint == global_config.usdc_mint @ LotteryError::InvalidTokenAccount
     )]
     pub lottery_token_account: Account<'info, TokenAccount>,
 
+    /// Winner's token account (destination for prize)
     #[account(
         mut,
-        // Ensure winner's token account can receive the prize
         constraint = winner_token_account.mint == global_config.usdc_mint @ LotteryError::InvalidTokenAccount,
-        constraint = winner_token_account.owner == winner.key() @ LotteryError::InvalidAccountOwner,
+        constraint = winner_token_account.owner == winner.key() @ LotteryError::InvalidTokenAccount
     )]
     pub winner_token_account: Account<'info, TokenAccount>,
 
-    #[account(mut)] // Winner must sign to prove ownership and receive funds
+    /// The winner (must be the owner of the winning ticket)
+    #[account(mut)]
     pub winner: Signer<'info>,
 
+    /// Global configuration
+    #[account(
+        seeds = [b"global_config"],
+        bump
+    )]
+    pub global_config: Account<'info, GlobalConfig>,
+
     pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
 }
 
 pub fn handler(ctx: Context<ClaimPrize>) -> Result<()> {

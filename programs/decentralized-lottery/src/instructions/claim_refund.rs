@@ -1,7 +1,8 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Transfer};
+use anchor_spl::token::{self, Token, Transfer, TokenAccount};
 use crate::state::lottery::{LotteryAccount, LotteryState};
 use crate::state::ticket::TicketAccount;
+use crate::state::treasury::GlobalConfig;
 use crate::errors::LotteryError;
 use crate::events::TicketRefunded; // Assuming this event will be created
 
@@ -12,37 +13,42 @@ pub struct ClaimRefund<'info> {
         // No mut needed if not decrementing counters
         constraint = lottery_account.state == LotteryState::Cancelled || lottery_account.state == LotteryState::Expired 
             @ LotteryError::InvalidStateForRefund,
+        has_one = global_config
     )]
     pub lottery_account: Account<'info, LotteryAccount>,
 
     #[account(
         mut, // Ticket needs mutation to mark refunded (is_claimed = true)
+        constraint = ticket_account.lottery == lottery_account.key() @ LotteryError::TicketNotForThisLottery,
+        constraint = ticket_account.buyer == buyer.key() @ LotteryError::UnauthorizedAccess,
         constraint = !ticket_account.is_claimed @ LotteryError::TicketAlreadyClaimed,
-        constraint = ticket_account.lottery == lottery_account.key(),
-        constraint = ticket_account.buyer == buyer.key() @ LotteryError::UnauthorizedAccess, 
         seeds = [
-            b"ticket", 
-            lottery_account.key().as_ref(), 
+            b"ticket",
+            lottery_account.key().as_ref(),
             &ticket_account.id.to_le_bytes()
         ],
-        bump = ticket_account.bump,
-        // Optional: Close the ticket account after refund, returning rent to buyer
-        // close = buyer 
+        bump = ticket_account.bump
     )]
     pub ticket_account: Account<'info, TicketAccount>,
 
     #[account(
+        seeds = [b"global_config"],
+        bump
+    )]
+    pub global_config: Account<'info, GlobalConfig>,
+
+    /// Lottery's token account (source of refund)
+    #[account(
         mut,
-        // The lottery's prize pool / token account
-        constraint = lottery_token_account.owner == lottery_account.key() @ LotteryError::InvalidAccountOwner,
-        constraint = lottery_token_account.mint == buyer_token_account.mint @ LotteryError::InvalidTokenAccount 
+        constraint = lottery_token_account.mint == global_config.usdc_mint @ LotteryError::InvalidTokenAccount
     )]
     pub lottery_token_account: Account<'info, TokenAccount>,
 
+    /// Buyer's token account (destination for refund)
     #[account(
         mut,
-        // Buyer's token account to receive the refund
-        constraint = buyer_token_account.owner == buyer.key() @ LotteryError::InvalidAccountOwner,
+        constraint = buyer_token_account.mint == global_config.usdc_mint @ LotteryError::InvalidTokenAccount,
+        constraint = buyer_token_account.owner == buyer.key() @ LotteryError::InvalidTokenAccount
     )]
     pub buyer_token_account: Account<'info, TokenAccount>,
 
@@ -54,8 +60,7 @@ pub struct ClaimRefund<'info> {
     // We will use CPI seeds.
 
     pub token_program: Program<'info, Token>,
-    // System program might be needed if closing account
-    // pub system_program: Program<'info, System>,
+    pub system_program: Program<'info, System>,
 }
 
 pub fn handler(ctx: Context<ClaimRefund>) -> Result<()> {

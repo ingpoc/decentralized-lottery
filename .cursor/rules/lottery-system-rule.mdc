@@ -1,59 +1,240 @@
 ---
-description: 
+description: Rules and guidelines for the decentralized lottery system
 globs: 
+alwaysApply: false
 ---
 ---
 description: Rules and guidelines for the decentralized lottery system
 globs: ["programs/decentralized-lottery/src/**/*.rs"]
-version: 1.0.0
-last_updated: 2024-03-20
+version: 2.0.0
+last_updated: 2024-12-19
 ---
-# Lottery System Rule
+# Lottery System Development Rule
 
 ## Purpose
-Define when and how to apply lottery system patterns and requirements.
+Define comprehensive guidelines for developing the decentralized lottery system, incorporating lessons learned from build troubleshooting and systematic development approach.
 
 ## Documentation Reference
-- Implementation in [lottery-system.md](docs/lottery-system.md)
+- Implementation in [lottery-system.md](mdc:docs/lottery-system.md)
+- Action items in [action-items.md](mdc:docs/action-items.md)
 - ALWAYS check documentation first
 
+## Critical Build & Development Guidelines
+
+### 1. **Module Structure Management**
+**ALWAYS follow this order when modifying modules:**
+
+```rust
+// 1. State modules first (foundational)
+pub mod lottery;
+pub mod ticket; 
+pub mod treasury;
+// VRF module only when properly integrated
+
+// 2. Instructions modules (incrementally)
+pub mod create_lottery;
+pub mod buy_ticket;
+// Add one instruction at a time, test build
+
+// 3. Export pattern
+pub use lottery::*;
+pub use ticket::*;
+// Avoid glob exports that cause conflicts
+```
+
+**🚨 CRITICAL**: Never add VRF-related modules until dependencies are properly resolved
+
+### 2. **Incremental Development Process**
+**MANDATORY: Test build after each step**
+
+```bash
+# After each module addition
+anchor build
+
+# Verify no "unresolved import `crate`" errors
+# If errors occur, isolate and fix before proceeding
+```
+
+**Step-by-step approach:**
+1. ✅ Basic program structure (initialize function only)
+2. ✅ Add one instruction module at a time
+3. ✅ Test each instruction individually
+4. ✅ Add treasury management incrementally
+5. ❌ **NEVER** add all instructions simultaneously
+
+### 3. **Anchor Program Macro Management**
+**The `#[program]` macro is sensitive to:**
+- Unresolved imports in instruction modules
+- Circular dependencies between modules
+- Missing account struct definitions
+- VRF-related imports without proper dependencies
+
+**Resolution pattern:**
+```rust
+// If build fails with "unresolved import `crate`":
+// 1. Remove problematic instruction from mod.rs
+// 2. Build to confirm resolution
+// 3. Fix the specific instruction file
+// 4. Re-add incrementally
+```
+
+### 4. **VRF Integration Guidelines**
+**🚨 HIGH RISK AREA - Handle with extreme care**
+
+**BEFORE adding VRF:**
+1. Ensure Switchboard dependencies are properly configured
+2. Comment out ALL VRF-related code initially
+3. Build and test core functionality
+4. Add VRF incrementally with proper error handling
+
+**VRF Module Pattern:**
+```rust
+// Only uncomment when ready
+// pub mod vrf;
+// pub mod settle_randomness;
+
+// Use feature flags for VRF
+#[cfg(feature = "vrf")]
+pub mod vrf;
+```
+
+### 5. **Treasury System Integration**
+**Treasury modules require careful dependency management:**
+
+```rust
+// Required imports for treasury
+use crate::state::treasury::{GlobalConfig, Treasury};
+use crate::errors::LotteryError;
+use crate::events::TreasuryWithdrawal;
+
+// Add treasury instructions AFTER core lottery functions work
+```
+
 ## When to Apply
-1. **Category: Implementation**
-   - When creating new lottery features
-   - When modifying existing lottery logic
-   - When handling lottery state changes
-   → See lottery-system.md#implementation
 
-2. **Category: Security**
-   - When implementing random number generation
-   - When handling user funds
-   - When managing access controls
-   → See lottery-system.md#security
-
-3. **Category: Updates**
-   - When changing lottery parameters
-   - When updating validation rules
-   - When modifying program constraints
-   → See lottery-system.md#updates
-
-## Change Management Process
-1. **Before Changes**
+### **Category: New Feature Implementation**
+1. **Before adding any new instruction:**
    ```
-   1. Review lottery-system.md
-   2. Verify security requirements
-   3. Check existing patterns
+   1. Ensure current build is successful
+   2. Create instruction file with proper imports
+   3. Add to mod.rs exports
+   4. Test build immediately
+   5. Add to lib.rs program module
+   6. Test build again
    ```
 
-## Documentation Rules
-1. **Update Requirements**
+2. **State Management Changes:**
    ```
-   1. Document new patterns
-   2. Update security guidelines
-   3. Maintain test examples
+   1. Update state structs first
+   2. Verify ACCOUNT_SIZE calculations
+   3. Update instruction contexts
+   4. Test incrementally
+   ```
+
+### **Category: Security Implementation**
+- When implementing random number generation → Use simple randomness first, VRF later
+- When handling user funds → Implement treasury controls incrementally  
+- When managing access controls → Add admin functions after core features work
+
+### **Category: Troubleshooting Build Issues**
+**If "unresolved import `crate`" error occurs:**
+
+```bash
+# Diagnostic process
+1. Comment out last added instruction module
+2. Build to isolate issue
+3. Check for VRF-related imports
+4. Remove problematic files temporarily
+5. Re-add incrementally with fixes
+```
+
+## Error Patterns & Solutions
+
+### **Common Build Errors:**
+1. **VRF Import Issues** → Remove VRF files, comment VRF exports
+2. **Treasury Context Missing** → Add Treasury to state exports
+3. **Circular Dependencies** → Check crate imports in instruction files
+4. **Missing IDL Build** → Add `idl-build = ["anchor-lang/idl-build"]` to Cargo.toml
+
+### **Module Addition Order:**
+```
+✅ CORRECT: state → core instructions → treasury → admin functions → VRF
+❌ WRONG: All modules at once → Build failures → Hours of debugging
+```
+
+## Development Workflow
+
+### **Phase 1: Foundation (COMPLETED ✅)**
+- [x] Basic Anchor program structure
+- [x] State modules (lottery, ticket, treasury)
+- [x] Core events and errors
+- [x] Global configuration
+
+### **Phase 2: Core Lottery Features**
+- [ ] Add create_lottery instruction
+- [ ] Add buy_ticket instruction  
+- [ ] Add state transition management
+- [ ] Add prize claiming system
+- [ ] Add refund system
+
+### **Phase 3: Treasury Management**
+- [ ] Add treasury initialization
+- [ ] Add withdrawal proposals
+- [ ] Add multi-sig approvals
+- [ ] Add emergency functions
+
+### **Phase 4: Advanced Features**
+- [ ] Admin controls (pause/resume)
+- [ ] Parameter updates
+- [ ] User history features
+- [ ] Simple randomness (non-VRF)
+
+### **Phase 5: VRF Integration (FINAL)**
+- [ ] Add Switchboard dependencies
+- [ ] Implement VRF client
+- [ ] Add randomness settlement
+- [ ] Full integration testing
+
+## Quality Assurance
+
+### **Before Each Commit:**
+```bash
+# MANDATORY checks
+anchor build                    # Must succeed
+anchor test                     # Must pass basic tests  
+grep -r "TODO\|FIXME" src/     # Address all TODOs
+```
+
+### **Code Review Checklist:**
+- [ ] No VRF imports without proper dependencies
+- [ ] All instruction modules have proper error handling
+- [ ] State structs have correct ACCOUNT_SIZE
+- [ ] No glob exports causing conflicts
+- [ ] Incremental addition pattern followed
+
+## Emergency Procedures
+
+### **If Build Completely Broken:**
+1. **Immediate Recovery:**
+   ```bash
+   # Reset to known working state
+   git checkout HEAD~1 -- programs/decentralized-lottery/src/lib.rs
+   # Remove problematic instruction modules
+   # Build minimal working version
+   ```
+
+2. **Systematic Rebuild:**
+   ```bash
+   # Start with minimal lib.rs
+   # Add instructions one by one
+   # Test build after each addition
    ```
 
 ## Related Rules
-- Account management rules
-- Token handling rules
-- Security verification rules
+- [development-rule](mdc:development-rule.mdc) - General development workflow
+- [aiguidelines-rule](mdc:aiguidelines-rule.mdc) - AI development guidelines
+- [rules-management-rule](mdc:rules-management-rule.mdc) - Rule update procedures
+
+---
+**⚠️ CRITICAL REMINDER**: Always build incrementally. The `#[program]` macro failure cost hours of debugging. Never again.
 

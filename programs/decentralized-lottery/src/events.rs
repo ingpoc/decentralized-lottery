@@ -67,6 +67,19 @@ pub struct PrizeClaimed {
 }
 
 #[event]
+/// Event emitted when a winner is determined for a lottery.
+/// - Purpose: Announces the winning ticket ID and randomness value used.
+/// - Context: Triggered by the `select_winner` instruction after randomness is processed.
+pub struct LotteryWinnerDetermined {
+    pub lottery_id: Pubkey,
+    pub previous_state: LotteryState,
+    pub new_state: LotteryState,
+    pub winner: Pubkey, // Placeholder, actual winner determined from ticket ID
+    pub randomness: u64, // Can be the raw random value or derived winning ticket ID
+    pub timestamp: i64,
+}
+
+#[event]
 /// Event emitted when a ticket is refunded.
 /// - Purpose: Indicates a refund has been issued for a ticket, typically when a lottery expires without a draw.
 /// - Context: Triggered by the `claim_refund` instruction after returning the ticket cost to the buyer.
@@ -121,4 +134,16 @@ pub struct DrawingStarted {
     pub total_tickets: u64,
     pub prize_pool: u64,
     pub vrf_client: Option<Pubkey>,
+}
+
+#[event]
+/// Event emitted when funds are withdrawn from the treasury.
+/// - Purpose: Records treasury withdrawals for transparency and audit purposes.
+/// - Context: Triggered by treasury withdrawal instructions when funds are transferred out.
+pub struct TreasuryWithdrawal {
+    pub treasury: Pubkey,
+    pub amount: u64,
+    pub destination: Pubkey,
+    pub timestamp: i64,
+    pub is_emergency: bool,
 }

@@ -1,7 +1,8 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Transfer};
+use anchor_spl::token::{self, Token, Transfer, TokenAccount};
 use crate::state::lottery::{LotteryAccount, LotteryState};
 use crate::state::ticket::TicketAccount;
+use crate::state::treasury::GlobalConfig;
 use crate::errors::LotteryError;
 use crate::events::TicketPurchased;
 use crate::utils::safe_add;
@@ -18,17 +19,18 @@ pub struct BuyTicket<'info> {
         bump,
         constraint = lottery_account.state == LotteryState::Open @ LotteryError::LotteryNotOpen,
         constraint = !lottery_account.is_claimed @ LotteryError::LotteryAlreadyClaimed,
+        has_one = global_config
     )]
     pub lottery_account: Account<'info, LotteryAccount>,
 
     #[account(
         init,
-        payer = buyer,
+        payer = user,
         space = TicketAccount::ACCOUNT_SIZE,
         seeds = [
             b"ticket", 
             lottery_account.key().as_ref(), 
-            &lottery_account.last_ticket_id.to_le_bytes()
+            &(lottery_account.last_ticket_id + 1).to_le_bytes()
         ],
         bump
     )]
@@ -42,29 +44,38 @@ pub struct BuyTicket<'info> {
     pub ticket_account: Account<'info, TicketAccount>,
 
     #[account(
+        seeds = [b"global_config"],
+        bump
+    )]
+    pub global_config: Account<'info, GlobalConfig>,
+
+    /// User's USDC token account
+    #[account(
         mut,
-        constraint = user_token_account.mint == lottery_token_account.mint @ LotteryError::InvalidTokenAccount,
-        constraint = user_token_account.owner == buyer.key() @ LotteryError::InvalidAccountOwner,
+        constraint = user_token_account.mint == global_config.usdc_mint @ LotteryError::InvalidTokenAccount,
+        constraint = user_token_account.owner == user.key() @ LotteryError::InvalidTokenAccount
     )]
     pub user_token_account: Account<'info, TokenAccount>,
 
+    /// Lottery's USDC token account
     #[account(
         mut,
-        constraint = lottery_token_account.owner == lottery_account.key() @ LotteryError::InvalidAccountOwner,
+        constraint = lottery_token_account.mint == global_config.usdc_mint @ LotteryError::InvalidTokenAccount
     )]
     pub lottery_token_account: Account<'info, TokenAccount>,
 
     #[account(mut)]
-    pub buyer: Signer<'info>,
+    pub user: Signer<'info>,
 
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
 }
 
 pub fn handler(ctx: Context<BuyTicket>) -> Result<()> {
     let lottery_account = &mut ctx.accounts.lottery_account;
     let ticket_account = &mut ctx.accounts.ticket_account;
-    let buyer = &ctx.accounts.buyer;
+    let user = &ctx.accounts.user;
     
     // Additional validation: Check if draw time has passed
     let current_time = Clock::get()?.unix_timestamp;
@@ -85,14 +96,14 @@ pub fn handler(ctx: Context<BuyTicket>) -> Result<()> {
         Transfer {
             from: ctx.accounts.user_token_account.to_account_info(),
             to: ctx.accounts.lottery_token_account.to_account_info(),
-            authority: buyer.to_account_info(),
+            authority: user.to_account_info(),
         },
     );
     token::transfer(transfer_ctx, ticket_cost)?;
 
     ticket_account.lottery = lottery_account.key();
     ticket_account.id = ticket_id;
-    ticket_account.buyer = buyer.key();
+    ticket_account.buyer = user.key();
     ticket_account.is_claimed = false;
     let bump = ctx.bumps.ticket_account;
     ticket_account.bump = bump;
@@ -116,7 +127,7 @@ pub fn handler(ctx: Context<BuyTicket>) -> Result<()> {
     emit!(TicketPurchased {
         lottery_id: lottery_account.key(),
         ticket_id: ticket_id,
-        buyer: buyer.key(),
+        buyer: user.key(),
         number_of_tickets: 1,
         total_cost: ticket_cost,
         timestamp: current_time,

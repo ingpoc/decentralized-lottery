@@ -284,7 +284,7 @@ pub fn propose_withdrawal_handler(ctx: Context<ProposeWithdrawal>, amount: u64, 
     withdrawal_proposal.approvers = vec![ctx.accounts.proposer.key()];
     withdrawal_proposal.is_active = true;
     withdrawal_proposal.is_executed = false;
-    withdrawal_proposal.bump = *ctx.bumps.get("withdrawal_proposal").unwrap();
+    withdrawal_proposal.bump = ctx.bumps.withdrawal_proposal;
     
     msg!("Treasury withdrawal proposed: {} lamports to {}", 
         amount, withdrawal_proposal.destination);
@@ -336,7 +336,7 @@ pub fn execute_withdrawal_handler(ctx: Context<ExecuteWithdrawal>) -> Result<()>
     
     let seeds = &[
         b"global_config".as_ref(),
-        &[ctx.bumps.get("global_config").unwrap().clone()],
+        &[ctx.bumps.global_config],
     ];
     let signer = &[&seeds[..]];
     
@@ -387,5 +387,50 @@ pub fn emergency_withdrawal_handler(
         let time_since_last_withdrawal = clock.unix_timestamp - treasury.last_withdrawal_time;
         require!(
             time_since_last_withdrawal >= treasury.time_lock_seconds,
-            LotteryError::TreasuryWithdra
+            LotteryError::TreasuryWithdrawalTimeLockNotReached
+        );
+    }
+    
+    // Ensure the amount doesn't exceed the available balance
+    require!(amount <= treasury_token_account.amount, LotteryError::InvalidInstructionInput);
+    
+    // Transfer the tokens
+    let cpi_accounts = Transfer {
+        from: treasury_token_account.to_account_info(),
+        to: destination_token_account.to_account_info(),
+        authority: ctx.accounts.global_config.to_account_info(),
+    };
+    
+    let seeds = &[
+        b"global_config".as_ref(),
+        &[ctx.bumps.global_config],
+    ];
+    let signer = &[&seeds[..]];
+    
+    let cpi_ctx = CpiContext::new_with_signer(
+        ctx.accounts.token_program.to_account_info(),
+        cpi_accounts,
+        signer,
+    );
+    
+    token::transfer(cpi_ctx, amount)?;
+    
+    // Update the treasury information
+    treasury.last_withdrawal_time = clock.unix_timestamp;
+    treasury.treasury_balance = treasury.treasury_balance.saturating_sub(amount);
+    
+    // Emit emergency withdrawal event
+    emit!(TreasuryWithdrawal {
+        treasury: treasury.key(),
+        amount,
+        destination: destination_token_account.key(),
+        timestamp: clock.unix_timestamp,
+        is_emergency: true,
+    });
+    
+    msg!("Emergency treasury withdrawal executed: {} lamports to {}", 
+        amount, destination_token_account.key());
+    
+    Ok(())
+}
 
