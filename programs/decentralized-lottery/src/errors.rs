@@ -101,4 +101,26 @@ pub enum LotteryError {
     EmptyPrizePool,
     #[msg("Insufficient funds in the prize pool.")]
     InsufficientPrizeFunds,
+    #[msg("Invalid mint address.")]
+    InvalidMint,
+    #[msg("Randomness has already been fulfilled.")]
+    RandomnessAlreadyFulfilled,
+    #[msg("VRF request key is not set.")]
+    VrfRequestKeyNotSet,
+    #[msg("VRF account mismatch.")]
+    VrfAccountMismatch,
+    #[msg("Randomness is not fulfilled.")]
+    RandomnessNotFulfilled,
+    #[msg("Randomness is not available.")]
+    RandomnessNotAvailable,
+    #[msg("Winner has already been selected.")]
+    WinnerAlreadySelected,
+    #[msg("No tickets were sold.")]
+    NoTicketsSold,
+    #[msg("Draw time has not been reached yet.")]
+    DrawTimeNotReached,
+    #[msg("VRF client is not set.")]
+    VrfClientNotSet,
+    #[msg("VRF callback has not timed out yet.")]
+    VrfCallbackNotTimedOut,
 }

@@ -46,29 +46,21 @@ pub fn handler(ctx: Context<SelectWinner>) -> Result<()> {
     let winning_ticket_id = (random_value % lottery_account.total_tickets) + 1; // Assuming ticket IDs are 1-based
 
     // Derive the winning ticket PDA
-    // Ensure the utils function `get_ticket_pda_pubkey` exists and works as expected.
-    // It might require lottery_account.key() and winning_ticket_id.
     let winning_ticket_pda = utils::get_ticket_pda_pubkey(
         &lottery_account.key(),
-        winning_ticket_id,
-        ctx.program_id
-    )?; // Pass program_id if find_program_address is used internally by util
+        winning_ticket_id
+    )?;
 
     lottery_account.winning_ticket = Some(winning_ticket_pda);
     lottery_account.is_prize_pool_locked = true; // Lock prize pool now that winner is selected
 
     // Emit event
-    // Assuming LotteryWinnerDetermined is suitable. It might need adjustment
-    // if its fields (like winner pubkey) are not available yet.
-    // The winner pubkey is on the TicketAccount, which is not loaded here.
-    // This event might be better emitted when the prize is claimed, or simplified here.
     emit!(LotteryWinnerDetermined {
         lottery_id: lottery_account.key(),
-        previous_state: lottery_account.state.clone(), // Still Completed
-        new_state: lottery_account.state.clone(),     // Still Completed
+        previous_state: lottery_account.state.clone(),
+        new_state: lottery_account.state.clone(),
         winner: winning_ticket_pda, // This is the ticket PDA, not the buyer's pubkey
-        randomness_source: Pubkey::default(), // Placeholder for actual VRF source if needed
-        winning_ticket_id,
+        randomness: random_value,
         timestamp: clock.unix_timestamp,
     });
 

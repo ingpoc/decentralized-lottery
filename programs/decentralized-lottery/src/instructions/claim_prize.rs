@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Transfer, Mint};
+use anchor_spl::token::{self, Transfer, Token};
 use crate::state::lottery::{LotteryAccount, LotteryState};
 use crate::state::ticket::TicketAccount;
 use crate::state::GlobalConfig;
@@ -36,28 +36,20 @@ pub struct ClaimPrize<'info> {
     #[account(mut)]
     pub winner: Signer<'info>, // This is the buyer of the winning ticket
 
-    #[account(
-        mut,
-        associated_token::mint = usdc_mint,
-        associated_token::authority = lottery_account, // PDA is the authority for its token account
-    )]
-    pub lottery_token_account: Account<'info, TokenAccount>,
+    /// CHECK: Lottery's token account that holds the prize pool
+    #[account(mut)]
+    pub lottery_token_account: AccountInfo<'info>,
 
-    #[account(
-        mut,
-        constraint = winner_token_account.owner == winner.key() @ LotteryError::InvalidTokenAccount,
-        constraint = winner_token_account.mint == usdc_mint.key() @ LotteryError::InvalidMint
-    )]
-    pub winner_token_account: Account<'info, TokenAccount>,
+    /// CHECK: Winner's USDC token account 
+    #[account(mut)]
+    pub winner_token_account: AccountInfo<'info>,
 
+    /// CHECK: Treasury USDC token account
     #[account(
         mut,
         address = global_config.treasury_token_account @ LotteryError::InvalidTokenAccount
     )]
-    pub treasury_token_account: Account<'info, TokenAccount>,
-
-    #[account(address = global_config.usdc_mint @ LotteryError::InvalidMint)]
-    pub usdc_mint: Account<'info, Mint>,
+    pub treasury_token_account: AccountInfo<'info>,
 
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,

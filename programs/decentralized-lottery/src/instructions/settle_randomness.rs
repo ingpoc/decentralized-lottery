@@ -64,9 +64,11 @@ pub fn handler(ctx: Context<SettleRandomness>) -> Result<()> {
 
     msg!("Placeholder: Parsing VRF account data to get randomness");
     // Simulate received randomness for now
-    let received_randomness: [u8; 32] = clock.unix_timestamp.to_le_bytes()[0..8]
-        .try_into().unwrap_or_default().repeat(4)
-        .try_into().unwrap_or_default(); // Simple mock randomness
+    let timestamp_bytes: [u8; 8] = clock.unix_timestamp.to_le_bytes();
+    let mut received_randomness = [0u8; 32];
+    for i in 0..4 {
+        received_randomness[i*8..(i+1)*8].copy_from_slice(&timestamp_bytes);
+    }
 
     // TODO: Add actual verification logic for the received randomness/proof if applicable
     // This is also provider-specific. Some VRFs provide proofs that need on-chain verification.

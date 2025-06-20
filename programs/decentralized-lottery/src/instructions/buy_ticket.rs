@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Transfer, Mint};
+use anchor_spl::token::{self, Transfer, Token};
 use anchor_spl::associated_token::AssociatedToken;
 use crate::state::lottery::{LotteryAccount, LotteryState};
 use crate::state::ticket::TicketAccount;
@@ -39,23 +39,16 @@ pub struct BuyTicket<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
-    #[account(
-        mut,
-        constraint = user_token_account.owner == user.key() @ LotteryError::InvalidTokenAccount,
-        constraint = user_token_account.mint == global_config.usdc_mint @ LotteryError::InvalidTokenAccount
-    )]
-    pub user_token_account: Account<'info, TokenAccount>,
+    /// CHECK: User's USDC token account
+    #[account(mut)]
+    pub user_token_account: AccountInfo<'info>,
 
-    #[account(
-        init_if_needed,
-        payer = user,
-        associated_token::mint = usdc_mint,
-        associated_token::authority = lottery_account,
-    )]
-    pub lottery_token_account: Account<'info, TokenAccount>,
+    /// CHECK: Lottery's token account to receive USDC
+    #[account(mut)]
+    pub lottery_token_account: AccountInfo<'info>,
 
-    #[account(constraint = usdc_mint.key() == global_config.usdc_mint)]
-    pub usdc_mint: Account<'info, Mint>,
+    /// CHECK: USDC mint account
+    pub usdc_mint: AccountInfo<'info>,
 
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
