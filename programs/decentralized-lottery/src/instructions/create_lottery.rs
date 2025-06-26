@@ -5,19 +5,19 @@ use crate::errors::LotteryError;
 use crate::events::LotteryCreated;
 
 #[derive(Accounts)]
-#[instruction(lottery_type_enum: LotteryType)]
+#[instruction(lottery_type_enum: LotteryType, ticket_price: u64, draw_time: i64, target_prize_pool: u64, nonce: u64)]
 pub struct CreateLottery<'info> {
     #[account(
         init,
         payer = creator,
         space = LotteryAccount::ACCOUNT_SIZE,
-        seeds = [b"lottery", creator.key().as_ref(), &Clock::get().unwrap().unix_timestamp.to_le_bytes()],
+        seeds = [b"lottery", creator.key().as_ref(), &nonce.to_le_bytes()],
         bump
     )]
     pub lottery_account: Account<'info, LotteryAccount>,
 
     #[account(
-        seeds = [b"global_config"],
+        seeds = [b"global_config_v2"],
         bump,
         constraint = global_config.admin == creator.key() @ LotteryError::AdminRequired
     )]
@@ -34,6 +34,7 @@ pub fn handler(
     ticket_price: u64,
     draw_time: i64,
     target_prize_pool: u64,
+    nonce: u64,
 ) -> Result<()> {
     let lottery_account = &mut ctx.accounts.lottery_account;
     let global_config = &ctx.accounts.global_config;
@@ -70,6 +71,7 @@ pub fn handler(
     lottery_account.is_claimed = false;
     lottery_account.created_at = clock.unix_timestamp;
     lottery_account.completed_at = None;
+    lottery_account.nonce = nonce;
 
     emit!(LotteryCreated {
         lottery_id: lottery_account.key(),

@@ -32,7 +32,7 @@ pub struct ClaimRefund<'info> {
     pub ticket_account: Account<'info, TicketAccount>,
 
     #[account(
-        seeds = [b"global_config"],
+        seeds = [b"global_config_v2"],
         bump
     )]
     pub global_config: Account<'info, GlobalConfig>,

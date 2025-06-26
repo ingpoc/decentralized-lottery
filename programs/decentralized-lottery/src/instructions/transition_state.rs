@@ -11,13 +11,13 @@ use crate::events::LotteryStateChanged;
 pub struct TransitionState<'info> {
     #[account(
         mut,
-        seeds = [b"lottery", lottery_account.authority.as_ref(), &lottery_account.created_at.to_le_bytes()],
+        seeds = [b"lottery", lottery_account.authority.as_ref(), &lottery_account.nonce.to_le_bytes()],
         bump
     )]
     pub lottery_account: Account<'info, LotteryAccount>,
 
     #[account(
-        seeds = [b"global_config"],
+        seeds = [b"global_config_v2"],
         bump,
     )]
     pub global_config: Account<'info, GlobalConfig>,

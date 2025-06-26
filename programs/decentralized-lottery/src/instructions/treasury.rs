@@ -13,7 +13,7 @@ pub struct InitializeTreasury<'info> {
     pub payer: Signer<'info>,
     
     #[account(
-        seeds = [b"global_config"],
+        seeds = [b"global_config_v2"],
         bump,
         has_one = admin @ LotteryError::UnauthorizedAccess
     )]
@@ -45,7 +45,7 @@ pub struct ProposeWithdrawal<'info> {
     pub proposer: Signer<'info>,
     
     #[account(
-        seeds = [b"global_config"],
+        seeds = [b"global_config_v2"],
         bump,
     )]
     pub global_config: Account<'info, GlobalConfig>,
@@ -89,7 +89,7 @@ pub struct ApproveWithdrawal<'info> {
     pub approver: Signer<'info>,
     
     #[account(
-        seeds = [b"global_config"],
+        seeds = [b"global_config_v2"],
         bump,
     )]
     pub global_config: Account<'info, GlobalConfig>,
@@ -121,7 +121,7 @@ pub struct ExecuteWithdrawal<'info> {
     pub executor: Signer<'info>,
     
     #[account(
-        seeds = [b"global_config"],
+        seeds = [b"global_config_v2"],
         bump,
     )]
     pub global_config: Account<'info, GlobalConfig>,
@@ -172,7 +172,7 @@ pub struct EmergencyWithdrawal<'info> {
     pub admin: Signer<'info>,
     
     #[account(
-        seeds = [b"global_config"],
+        seeds = [b"global_config_v2"],
         bump,
         has_one = admin @ LotteryError::UnauthorizedAccess
     )]
@@ -335,7 +335,7 @@ pub fn execute_withdrawal_handler(ctx: Context<ExecuteWithdrawal>) -> Result<()>
     };
     
     let seeds = &[
-        b"global_config".as_ref(),
+        b"global_config_v2".as_ref(),
         &[ctx.bumps.global_config],
     ];
     let signer = &[&seeds[..]];
@@ -402,7 +402,7 @@ pub fn emergency_withdrawal_handler(
     };
     
     let seeds = &[
-        b"global_config".as_ref(),
+        b"global_config_v2".as_ref(),
         &[ctx.bumps.global_config],
     ];
     let signer = &[&seeds[..]];

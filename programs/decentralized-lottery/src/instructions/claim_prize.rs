@@ -10,7 +10,7 @@ use crate::events::PrizeClaimed;
 pub struct ClaimPrize<'info> {
     #[account(
         mut,
-        seeds = [b"lottery", lottery_account.authority.as_ref(), &lottery_account.created_at.to_le_bytes()],
+        seeds = [b"lottery", lottery_account.authority.as_ref(), &lottery_account.nonce.to_le_bytes()],
         bump,
         constraint = lottery_account.state == LotteryState::Completed @ LotteryError::InvalidLotteryState,
         constraint = lottery_account.winning_ticket.is_some() @ LotteryError::NoWinnerSelected,
@@ -28,7 +28,7 @@ pub struct ClaimPrize<'info> {
     pub ticket_account: Account<'info, TicketAccount>,
 
     #[account(
-        seeds = [b"global_config"],
+        seeds = [b"global_config_v2"],
         bump
     )]
     pub global_config: Account<'info, GlobalConfig>,

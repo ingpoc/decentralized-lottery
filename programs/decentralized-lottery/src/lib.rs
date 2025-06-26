@@ -25,6 +25,7 @@ pub mod decentralized_lottery {
         ticket_price: u64,
         draw_time: i64,
         target_prize_pool: u64,
+        nonce: u64,
     ) -> Result<()> {
         instructions::create_lottery::handler(
             ctx,
@@ -32,6 +33,7 @@ pub mod decentralized_lottery {
             ticket_price,
             draw_time,
             target_prize_pool,
+            nonce,
         )
     }
 

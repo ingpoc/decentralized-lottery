@@ -17,7 +17,7 @@ pub struct CancelLottery<'info> {
     pub lottery_account: Account<'info, LotteryAccount>,
 
     #[account(
-        seeds = [b"global_config"],
+        seeds = [b"global_config_v2"],
         bump,
         constraint = global_config.admin == admin.key() @ LotteryError::AdminRequired
     )]

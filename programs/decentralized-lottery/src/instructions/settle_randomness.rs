@@ -16,7 +16,7 @@ pub struct RandomnessSettled {
 pub struct SettleRandomness<'info> {
     #[account(
         mut,
-        seeds = [b"lottery", lottery_account.authority.as_ref(), &lottery_account.created_at.to_le_bytes()],
+        seeds = [b"lottery", lottery_account.authority.as_ref(), &lottery_account.nonce.to_le_bytes()],
         bump,
         constraint = lottery_account.state == LotteryState::AwaitingRandomness @ LotteryError::InvalidLotteryState,
         constraint = !lottery_account.randomness_fulfilled @ LotteryError::RandomnessAlreadyFulfilled,

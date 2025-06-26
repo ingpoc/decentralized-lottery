@@ -1,13 +1,36 @@
+# Anchor
 .anchor
-.DS_Store
 target
 **/*.rs.bk
+
+# Node
 node_modules
+package-lock.json
+
+# Solana
 test-ledger
-.yarn
-
 .env
+*.pem
 
+# Build artifacts
 Cargo.lock
+*.log
+*.tsbuildinfo
+*.cache
 
+# Editor
+.idea
+.vscode
+*.swp
+*.swo
 
+# Temporary files
+*.tmp
+*.bak
+*.old
+*.orig
+*.rej
+
+# Accidentally created frontend build artifacts
+.next/
+out/

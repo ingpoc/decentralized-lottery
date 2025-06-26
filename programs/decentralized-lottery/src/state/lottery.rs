@@ -30,7 +30,8 @@ impl LotteryAccount {
         
         // Additional metadata
         8 +            // created_at i64
-        (1 + 8);       // Option<i64> completed_at
+        (1 + 8) +      // Option<i64> completed_at
+        8;             // nonce u64
     
     // Helper method to initialize VRF fields
     pub fn initialize_vrf(&mut self, vrf_client: Pubkey, oracle_pubkey: Option<Pubkey>, vrf_request_key: Pubkey) {
@@ -180,4 +181,5 @@ pub struct LotteryAccount {
     // Additional metadata
     pub created_at: i64,             // Timestamp when lottery was created
     pub completed_at: Option<i64>,   // Timestamp when lottery completed/expired/cancelled
+    pub nonce: u64,                  // Nonce used for PDA derivation
 }

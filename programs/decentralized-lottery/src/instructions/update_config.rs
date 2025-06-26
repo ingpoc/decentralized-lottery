@@ -6,7 +6,7 @@ use crate::errors::LotteryError;
 pub struct UpdateConfig<'info> {
     #[account(
         mut,
-        seeds = [b"global_config"],
+        seeds = [b"global_config_v2"],
         bump, // Make sure bump is handled correctly if needed
         constraint = global_config.admin == admin.key() @ LotteryError::AdminRequired
     )]

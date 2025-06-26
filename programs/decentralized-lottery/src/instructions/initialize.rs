@@ -1,6 +1,5 @@
 use anchor_lang::prelude::*;
 use crate::state::GlobalConfig;
-use crate::errors::LotteryError;
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
@@ -8,7 +7,7 @@ pub struct Initialize<'info> {
         init,
         payer = admin,
         space = GlobalConfig::ACCOUNT_SIZE,
-        seeds = [b"global_config"],
+        seeds = [b"global_config_v2"],
         bump
     )]
     pub global_config: Account<'info, GlobalConfig>,
