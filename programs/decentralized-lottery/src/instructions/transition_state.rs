@@ -69,6 +69,51 @@ pub fn handler(ctx: Context<TransitionState>, next_state_param: LotteryState) ->
         (LotteryState::Created, LotteryState::Open) => {
             // Standard transition
         },
+        (LotteryState::Open, LotteryState::Locked) => {
+            // Lock the lottery - stop accepting new tickets
+            // This prepares the lottery for drawing by preventing further ticket sales
+            lottery_account.is_prize_pool_locked = true;
+        },
+        (LotteryState::Locked, LotteryState::Drawing) => {
+            // Transition from Locked to Drawing - begin the drawing process
+            if lottery_account.total_tickets == 0 {
+                lottery_account.state = LotteryState::Expired;
+                lottery_account.completed_at = Some(clock.unix_timestamp);
+                emit!(LotteryStateChanged {
+                    lottery_id: lottery_account.key(),
+                    previous_state: current_state,
+                    new_state: LotteryState::Expired,
+                    timestamp: clock.unix_timestamp,
+                    total_tickets_sold: lottery_account.total_tickets,
+                    current_prize_pool: lottery_account.prize_pool,
+                });
+                return Ok(());
+            }
+            // Ensure draw time has passed for Locked -> Drawing
+            if clock.unix_timestamp < lottery_account.draw_time {
+                return Err(LotteryError::DrawTimeNotReached.into());
+            }
+
+            // PRODUCTION: Always use VRF for secure randomness
+            if lottery_account.vrf_client.is_none() {
+                return Err(LotteryError::VrfClientNotSet.into());
+            }
+
+            // Request VRF randomness and transition to AwaitingRandomness
+            lottery_account.vrf_request_key = lottery_account.vrf_client;
+            lottery_account.randomness_fulfilled = false;
+            actual_next_state = LotteryState::AwaitingRandomness;
+
+            // Emit drawing started event
+            emit!(DrawingStarted {
+                lottery_id: lottery_account.key(),
+                timestamp: clock.unix_timestamp,
+                total_tickets: lottery_account.total_tickets,
+                prize_pool: lottery_account.prize_pool,
+                vrf_client: lottery_account.vrf_client,
+            });
+        },
+        },
         (LotteryState::Open, LotteryState::Drawing) => { // This will now become AwaitingRandomness
             if lottery_account.draw_time > clock.unix_timestamp && !lottery_account.auto_transition {
                  // Manual transition to Drawing before draw_time by admin

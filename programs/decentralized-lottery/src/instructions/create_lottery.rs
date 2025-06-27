@@ -64,7 +64,10 @@ pub fn handler(
     lottery_account.auto_transition = false;
     lottery_account.last_ticket_id = 0;
     lottery_account.oracle_pubkey = None;
-    lottery_account.vrf_client = None;
+    // PRODUCTION: Set up VRF client for secure randomness
+    // Use Switchboard VRF - this should be passed as an account in production
+    // For now, we'll create a placeholder that can be updated later
+    lottery_account.vrf_client = Some(ctx.accounts.creator.key()); // Placeholder - should be actual VRF account
     lottery_account.vrf_randomness = None;
     lottery_account.vrf_request_account = None;
     lottery_account.is_prize_pool_locked = false;

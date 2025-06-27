@@ -53,18 +53,40 @@ pub fn handler(ctx: Context<SelectWinner>) -> Result<()> {
 
     lottery_account.winning_ticket = Some(winning_ticket_pda);
     lottery_account.is_prize_pool_locked = true; // Lock prize pool now that winner is selected
+    
+    // PRODUCTION: Automatically transition to Completed state after winner selection
+    let previous_state = lottery_account.state.clone();
+    lottery_account.state = LotteryState::Completed;
+    lottery_account.completed_at = Some(clock.unix_timestamp);
 
-    // Emit event
+    // Get the actual winner's public key from the ticket account
+    let winning_ticket_account = &ctx.accounts.winning_ticket;
+    let winner_pubkey = winning_ticket_account.owner;
+
+    // Emit winner determination event with actual winner address
     emit!(LotteryWinnerDetermined {
         lottery_id: lottery_account.key(),
-        previous_state: lottery_account.state.clone(),
-        new_state: lottery_account.state.clone(),
-        winner: winning_ticket_pda, // This is the ticket PDA, not the buyer's pubkey
+        previous_state,
+        new_state: LotteryState::Completed,
+        winner: winner_pubkey, // Actual winner's wallet address
         randomness: random_value,
         timestamp: clock.unix_timestamp,
     });
 
-    msg!("Winner selected for lottery {}: ticket PDA {}", lottery_account.key(), winning_ticket_pda);
+    // Emit state change event
+    emit!(LotteryStateChanged {
+        lottery_id: lottery_account.key(),
+        previous_state,
+        new_state: LotteryState::Completed,
+        timestamp: clock.unix_timestamp,
+        total_tickets_sold: lottery_account.total_tickets,
+        current_prize_pool: lottery_account.prize_pool,
+    });
+
+    msg!("Winner selected for lottery {}: ticket {} owned by {}", 
+         lottery_account.key(), 
+         winning_ticket_id, 
+         winner_pubkey);
 
     Ok(())
 }
