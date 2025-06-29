@@ -113,7 +113,6 @@ pub fn handler(ctx: Context<TransitionState>, next_state_param: LotteryState) ->
                 vrf_client: lottery_account.vrf_client,
             });
         },
-        },
         (LotteryState::Open, LotteryState::Drawing) => { // This will now become AwaitingRandomness
             if lottery_account.draw_time > clock.unix_timestamp && !lottery_account.auto_transition {
                  // Manual transition to Drawing before draw_time by admin

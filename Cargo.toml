@@ -1,6 +1,7 @@
 [workspace]
 members = [
-    "programs/decentralized-lottery"
+    "programs/decentralized-lottery",
+    "programs/decentralized-roulette"
 ]
 resolver = "2"
 
