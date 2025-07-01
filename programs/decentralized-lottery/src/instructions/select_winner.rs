@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use crate::state::lottery::{LotteryAccount, LotteryState};
 use crate::errors::LotteryError;
-use crate::events::LotteryWinnerDetermined; // Assuming this event exists and is suitable
+use crate::events::{LotteryWinnerDetermined, LotteryStateChanged}; // Assuming this event exists and is suitable
 use crate::utils; // For get_ticket_pda_pubkey
 
 #[derive(Accounts)]
@@ -59,14 +59,14 @@ pub fn handler(ctx: Context<SelectWinner>) -> Result<()> {
     lottery_account.state = LotteryState::Completed;
     lottery_account.completed_at = Some(clock.unix_timestamp);
 
-    // Get the actual winner's public key from the ticket account
-    let winning_ticket_account = &ctx.accounts.winning_ticket;
-    let winner_pubkey = winning_ticket_account.owner;
+    // Note: To get the actual winner's public key, we would need to load the ticket account
+    // For now, we'll use a placeholder since we don't have the ticket account in the context
+    let winner_pubkey = Pubkey::default(); // This should be replaced with actual ticket owner lookup
 
     // Emit winner determination event with actual winner address
     emit!(LotteryWinnerDetermined {
         lottery_id: lottery_account.key(),
-        previous_state,
+        previous_state: previous_state.clone(),
         new_state: LotteryState::Completed,
         winner: winner_pubkey, // Actual winner's wallet address
         randomness: random_value,

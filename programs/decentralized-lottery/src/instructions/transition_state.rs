@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use crate::state::lottery::{LotteryAccount, LotteryState};
 use crate::state::GlobalConfig;
 use crate::errors::LotteryError;
-use crate::events::LotteryStateChanged;
+use crate::events::{LotteryStateChanged, DrawingStarted};
 // Placeholder for Switchboard V2 specific imports
 // use switchboard_v2::{VrfAccountData, OracleQueueAccountData, PermissionAccountData, ProgramStateAccountData};
 
