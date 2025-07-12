@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use switchboard_v2::VrfAccountData;
+use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 use crate::state::{
     global_config::GlobalConfig,
     roulette::{RouletteAccount, RouletteState, BetType},
@@ -25,22 +25,29 @@ pub struct SettleRandomness<'info> {
     )]
     pub global_config: Account<'info, GlobalConfig>,
     
-    /// VRF account that contains the randomness
+    /// Randomness account that contains the randomness
+    /// CHECK: Switchboard randomness account
     #[account(
-        constraint = vrf.key() == roulette.vrf_client.unwrap() @ RouletteError::InvalidVrfAccount
+        constraint = randomness.key() == roulette.vrf_client.unwrap() @ RouletteError::InvalidVrfAccount
     )]
-    pub vrf: AccountLoader<'info, VrfAccountData>,
+    pub randomness: UncheckedAccount<'info>,
     
-    /// CHECK: Roulette token account (holds all bets)
-    #[account(mut)]
-    pub roulette_token_account: AccountInfo<'info>,
+    #[account(
+        mut,
+        constraint = roulette_token_account.mint == global_config.usdc_mint @ RouletteError::InvalidTokenAccount,
+        seeds = [b"roulette_vault", roulette.key().as_ref()],
+        bump
+    )]
+    pub roulette_token_account: Account<'info, TokenAccount>,
     
-    /// CHECK: Treasury token account for collecting fees
-    #[account(mut)]
-    pub treasury_token_account: AccountInfo<'info>,
+    #[account(
+        mut,
+        constraint = treasury_token_account.mint == global_config.usdc_mint @ RouletteError::InvalidTokenAccount,
+        constraint = treasury_token_account.key() == global_config.treasury_token_account @ RouletteError::InvalidTokenAccount
+    )]
+    pub treasury_token_account: Account<'info, TokenAccount>,
     
-    /// CHECK: Token program
-    pub token_program: AccountInfo<'info>,
+    pub token_program: Program<'info, Token>,
     
     /// Anyone can call this instruction to settle the randomness
     pub caller: Signer<'info>,
@@ -57,21 +64,18 @@ pub fn handler(ctx: Context<SettleRandomness>) -> Result<()> {
         RouletteError::TooEarly
     );
     
-    // Load VRF account and get randomness
-    let vrf = ctx.accounts.vrf.load()?;
+    // Since the spin_roulette already generated the winning number, just verify completion
     require!(
-        vrf.result.value.len() >= 32,
+        roulette.randomness_fulfilled,
         RouletteError::RandomnessNotFulfilled
     );
     
-    // Extract randomness and convert to winning number
-    let randomness = vrf.result.value[..32].try_into().unwrap();
-    let winning_number = calculate_winning_number(&randomness, &roulette.roulette_type);
+    require!(
+        roulette.winning_number.is_some(),
+        RouletteError::RandomnessNotFulfilled
+    );
     
-    // Store randomness and winning number
-    roulette.vrf_randomness = Some(randomness);
-    roulette.vrf_randomness_fulfilled = true;
-    roulette.winning_number = Some(winning_number);
+    let winning_number = roulette.winning_number.unwrap();
     
     // Calculate payouts and fees
     let total_bet_amount = roulette.total_bet_amount;
@@ -85,14 +89,42 @@ pub fn handler(ctx: Context<SettleRandomness>) -> Result<()> {
     let available_for_payouts = total_bet_amount - treasury_fee;
     roulette.house_edge_collected = 0; // House edge is implicit in roulette odds
     
-    // TODO: Add treasury fee transfer logic using CPI
-    // This is commented out for IDL generation
-    // transfer(transfer_ctx, treasury_fee)?;
+    // Transfer treasury fee if there's any to collect
+    if treasury_fee > 0 {
+        // Verify the roulette has sufficient funds for fee transfer
+        require!(
+            ctx.accounts.roulette_token_account.amount >= treasury_fee,
+            RouletteError::InsufficientFunds
+        );
+        
+        // Create PDA signer seeds for the roulette vault account
+        let roulette_key = roulette.key();
+        let roulette_seeds = &[
+            b"roulette_vault",
+            roulette_key.as_ref(),
+            &[ctx.bumps.roulette_token_account]
+        ];
+        let signer_seeds = &[&roulette_seeds[..]];
+        
+        // Transfer treasury fee from roulette vault to treasury
+        let transfer_ctx = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            Transfer {
+                from: ctx.accounts.roulette_token_account.to_account_info(),
+                to: ctx.accounts.treasury_token_account.to_account_info(),
+                authority: ctx.accounts.roulette_token_account.to_account_info(),
+            },
+            signer_seeds
+        );
+        
+        token::transfer(transfer_ctx, treasury_fee)?;
+        msg!("Treasury fee transferred: {} USDC", treasury_fee);
+    }
     
     // Transition to completed state
     roulette.state = RouletteState::Completed;
     roulette.is_settled = true;
-    roulette.updated_at = clock.unix_timestamp;
+    roulette.completed_at = Some(clock.unix_timestamp);
     
     // Emit roulette spun event
     emit!(RouletteSpun {

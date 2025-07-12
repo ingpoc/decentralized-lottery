@@ -6,8 +6,8 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-decentralized_lottery = "9SL8XkX3pvqZ2fjiLMhCFfQn7Gfmpd9ru8rtHFsAPVgq"
-decentralized_roulette = "4ZVg5wU59Tr6pKAfxkTFsF2cffGrVRM2xqt1WbPUJrUB"
+decentralized_lottery = "Bvc68V4GSX9Tc1k11HetENR1z9Q4CHPvQVtRAKGoSfp9"
+decentralized_roulette = "CWiMTzfG7e3Jdta6sSsm9xVZjiA1ZHdtwuYjpQyjrW4F"
 
 [registry]
 url = "https://api.apr.dev"

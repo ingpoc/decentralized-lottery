@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 use crate::state::{
     global_config::GlobalConfig,
     roulette::{RouletteAccount, RouletteState, BetType},
@@ -35,16 +36,22 @@ pub struct ClaimWinnings<'info> {
     #[account(mut)]
     pub claimer: Signer<'info>,
     
-    /// CHECK: Claimer's USDC token account
-    #[account(mut)]
-    pub claimer_token_account: AccountInfo<'info>,
+    #[account(
+        mut,
+        constraint = claimer_token_account.mint == global_config.usdc_mint @ RouletteError::InvalidTokenAccount,
+        constraint = claimer_token_account.owner == claimer.key() @ RouletteError::InvalidTokenAccount
+    )]
+    pub claimer_token_account: Account<'info, TokenAccount>,
     
-    /// CHECK: Roulette token account (pays out winnings)
-    #[account(mut)]
-    pub roulette_token_account: AccountInfo<'info>,
+    #[account(
+        mut,
+        constraint = roulette_token_account.mint == global_config.usdc_mint @ RouletteError::InvalidTokenAccount,
+        seeds = [b"roulette_vault", roulette.key().as_ref()],
+        bump
+    )]
+    pub roulette_token_account: Account<'info, TokenAccount>,
     
-    /// CHECK: Token program
-    pub token_program: AccountInfo<'info>,
+    pub token_program: Program<'info, Token>,
 }
 
 pub fn handler(ctx: Context<ClaimWinnings>) -> Result<()> {
@@ -72,9 +79,33 @@ pub fn handler(ctx: Context<ClaimWinnings>) -> Result<()> {
     roulette.total_payouts += payout_amount;
     // roulette.updated_at = clock.unix_timestamp;
     
-    // TODO: Add token transfer logic using CPI
-    // This is commented out for IDL generation
-    // transfer(transfer_ctx, payout_amount)?;
+    // Verify the roulette has sufficient funds for payout
+    require!(
+        ctx.accounts.roulette_token_account.amount >= payout_amount,
+        RouletteError::InsufficientFunds
+    );
+    
+    // Create PDA signer seeds for the roulette account
+    let roulette_key = roulette.key();
+    let roulette_seeds = &[
+        b"roulette_vault",
+        roulette_key.as_ref(),
+        &[ctx.bumps.roulette_token_account]
+    ];
+    let signer_seeds = &[&roulette_seeds[..]];
+    
+    // Transfer payout from roulette vault to claimer
+    let transfer_ctx = CpiContext::new_with_signer(
+        ctx.accounts.token_program.to_account_info(),
+        Transfer {
+            from: ctx.accounts.roulette_token_account.to_account_info(),
+            to: ctx.accounts.claimer_token_account.to_account_info(),
+            authority: ctx.accounts.roulette_token_account.to_account_info(),
+        },
+        signer_seeds
+    );
+    
+    token::transfer(transfer_ctx, payout_amount)?;
     
     // Emit winnings claimed event
     emit!(WinningsClaimed {

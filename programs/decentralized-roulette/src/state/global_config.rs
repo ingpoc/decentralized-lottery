@@ -5,31 +5,18 @@ pub struct GlobalConfig {
     pub authority: Pubkey,
     pub usdc_mint: Pubkey,
     pub treasury_token_account: Pubkey,
-    pub treasury_fee_percentage: u16,     // 200 = 2.00%
+    pub treasury_fee_percentage: u16,     // Set to 250 for 2.5%
     pub is_paused: bool,
-    pub min_game_duration: i64,           // Minimum 5 minutes
-    pub max_game_duration: i64,           // Maximum duration allowed
-    pub min_bet_amount: u64,              // Minimum bet in USDC (micro-lamports)
-    pub max_bet_amount: u64,              // Maximum bet in USDC
-    pub max_players_per_game: u64,        // Maximum number of players
+    pub min_game_duration: i64,
+    pub max_game_duration: i64,
+    pub min_bet_amount: u64,
+    pub max_bet_amount: u64,
+    pub max_players_per_game: u64,
     pub created_at: i64,
     pub updated_at: i64,
     pub bump: u8,
 }
 
 impl GlobalConfig {
-    pub const ACCOUNT_SIZE: usize = 8 + // Discriminator
-        32 +           // authority Pubkey
-        32 +           // usdc_mint Pubkey
-        32 +           // treasury_token_account Pubkey
-        2 +            // treasury_fee_percentage u16
-        1 +            // is_paused bool
-        8 +            // min_game_duration i64
-        8 +            // max_game_duration i64
-        8 +            // min_bet_amount u64
-        8 +            // max_bet_amount u64
-        8 +            // max_players_per_game u64
-        8 +            // created_at i64
-        8 +            // updated_at i64
-        1;             // bump u8
+    pub const ACCOUNT_SIZE: usize = 8 + 32 + 32 + 32 + 2 + 1 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 1;
 }

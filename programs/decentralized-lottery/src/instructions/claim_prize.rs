@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Transfer, Token};
+use anchor_spl::token::{self, Transfer, Token, TokenAccount};
 use crate::state::lottery::{LotteryAccount, LotteryState};
 use crate::state::ticket::TicketAccount;
 use crate::state::GlobalConfig;
@@ -36,20 +36,27 @@ pub struct ClaimPrize<'info> {
     #[account(mut)]
     pub winner: Signer<'info>, // This is the buyer of the winning ticket
 
-    /// CHECK: Lottery's token account that holds the prize pool
-    #[account(mut)]
-    pub lottery_token_account: AccountInfo<'info>,
-
-    /// CHECK: Winner's USDC token account 
-    #[account(mut)]
-    pub winner_token_account: AccountInfo<'info>,
-
-    /// CHECK: Treasury USDC token account
     #[account(
         mut,
-        address = global_config.treasury_token_account @ LotteryError::InvalidTokenAccount
+        constraint = lottery_token_account.mint == global_config.usdc_mint @ LotteryError::InvalidTokenAccount,
+        seeds = [b"lottery_vault", lottery_account.key().as_ref()],
+        bump
     )]
-    pub treasury_token_account: AccountInfo<'info>,
+    pub lottery_token_account: Account<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        constraint = winner_token_account.mint == global_config.usdc_mint @ LotteryError::InvalidTokenAccount,
+        constraint = winner_token_account.owner == winner.key() @ LotteryError::InvalidTokenAccount
+    )]
+    pub winner_token_account: Account<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        constraint = treasury_token_account.mint == global_config.usdc_mint @ LotteryError::InvalidTokenAccount,
+        constraint = treasury_token_account.key() == global_config.treasury_token_account @ LotteryError::InvalidTokenAccount
+    )]
+    pub treasury_token_account: Account<'info, TokenAccount>,
 
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
@@ -72,20 +79,27 @@ pub fn handler(ctx: Context<ClaimPrize>) -> Result<()> {
         .checked_sub(treasury_fee)
         .ok_or(LotteryError::ArithmeticOverflow)?;
 
-    // Signer seeds for PDA to authorize token transfers
-    let authority_seeds: &[&[&[u8]]] = &[&[
-        b"lottery",
-        lottery_account.authority.as_ref(),
-        &lottery_account.created_at.to_le_bytes(),
-        &[ctx.bumps.lottery_account], // Use the bump from the lottery_account
-    ]];
+    // Verify sufficient funds for transfers
+    require!(
+        ctx.accounts.lottery_token_account.amount >= lottery_account.prize_pool,
+        LotteryError::InsufficientFunds
+    );
+
+    // Signer seeds for lottery vault PDA to authorize token transfers
+    let lottery_key = lottery_account.key();
+    let lottery_vault_seeds = &[
+        b"lottery_vault",
+        lottery_key.as_ref(),
+        &[ctx.bumps.lottery_token_account]
+    ];
+    let authority_seeds: &[&[&[u8]]] = &[&lottery_vault_seeds[..]];
 
     // Transfer treasury fee
     if treasury_fee > 0 {
         let cpi_accounts = Transfer {
             from: ctx.accounts.lottery_token_account.to_account_info(),
             to: ctx.accounts.treasury_token_account.to_account_info(),
-            authority: lottery_account.to_account_info(), // PDA is the authority
+            authority: ctx.accounts.lottery_token_account.to_account_info(), // Token account PDA is the authority
         };
         let cpi_program = ctx.accounts.token_program.to_account_info();
         let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, authority_seeds);
@@ -97,7 +111,7 @@ pub fn handler(ctx: Context<ClaimPrize>) -> Result<()> {
         let cpi_accounts = Transfer {
             from: ctx.accounts.lottery_token_account.to_account_info(),
             to: ctx.accounts.winner_token_account.to_account_info(),
-            authority: lottery_account.to_account_info(), // PDA is the authority
+            authority: ctx.accounts.lottery_token_account.to_account_info(), // Token account PDA is the authority
         };
         let cpi_program = ctx.accounts.token_program.to_account_info();
         let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, authority_seeds);

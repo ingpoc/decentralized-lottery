@@ -3,8 +3,6 @@ use crate::state::lottery::{LotteryAccount, LotteryState};
 use crate::state::GlobalConfig;
 use crate::errors::LotteryError;
 use crate::events::{LotteryStateChanged, DrawingStarted};
-// Placeholder for Switchboard V2 specific imports
-// use switchboard_v2::{VrfAccountData, OracleQueueAccountData, PermissionAccountData, ProgramStateAccountData};
 
 
 #[derive(Accounts)]
@@ -25,27 +23,6 @@ pub struct TransitionState<'info> {
     #[account(mut)]
     pub admin: Signer<'info>, // Admin who is authorizing the transition
 
-    // Switchboard VRF Accounts (placeholders, ensure these match actual needs)
-    // /// CHECK: The VRF client account an user interacts with.
-    // pub vrf: AccountLoader<'info, VrfAccountData>,
-    // /// CHECK: The OracleQueueAccountData that the VRF account is assigned to.
-    // pub oracle_queue: AccountLoader<'info, OracleQueueAccountData>,
-    // /// CHECK: The queue authority.
-    // pub queue_authority: UncheckedAccount<'info>,
-    // /// CHECK: The DataBuffer that the VRF Account uses to publish new results.
-    // pub data_buffer: AccountLoader<'info, DataBuffer>,
-    // /// CHECK: The PermissionAccountData that will authorize the VRF request.
-    // pub permission: AccountLoader<'info, PermissionAccountData>,
-    // /// CHECK: The SOL escrow account that will be used to pay for the VRF update.
-    // #[account(mut)]
-    // pub escrow: Account<'info, TokenAccount>, // Or SystemAccount if native SOL
-    // /// CHECK: program_state
-    // pub program_state: AccountLoader<'info, ProgramStateAccountData>,
-    // /// CHECK: The Switchboard program ID
-    // pub switchboard_program: Program<'info, SwitchboardProgram>,
-
-    // Token program if escrow is a token account
-    // pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
 }
 

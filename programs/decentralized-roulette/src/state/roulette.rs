@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq, Debug)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum RouletteType {
     European,  // 37 numbers (0-36)
     American,  // 38 numbers (0-36 + 00)
@@ -18,7 +18,7 @@ pub enum RouletteState {
     Cancelled,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq, Debug)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum BetType {
     Straight,       // Single number (35:1) - 1 number
     Split,          // Two adjacent numbers (17:1) - 2 numbers
@@ -64,6 +64,7 @@ pub struct RouletteAccount {
     pub created_by: Pubkey,
     pub authority: Pubkey,
     pub global_config: Pubkey,
+    pub roulette_usdc_account: Pubkey,
     
     // VRF-related fields (same pattern as lottery)
     pub vrf_client: Option<Pubkey>,
@@ -109,6 +110,7 @@ impl RouletteAccount {
         32 +           // created_by Pubkey
         32 +           // authority Pubkey
         32 +           // global_config Pubkey
+        32 +           // roulette_usdc_account Pubkey
         
         // VRF fields
         (1 + 32) +     // Option<Pubkey> vrf_client

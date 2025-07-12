@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("4ZVg5wU59Tr6pKAfxkTFsF2cffGrVRM2xqt1WbPUJrUB");
+declare_id!("CWiMTzfG7e3Jdta6sSsm9xVZjiA1ZHdtwuYjpQyjrW4F");
 
 pub mod constants;
 pub mod errors;
@@ -46,14 +46,14 @@ pub mod decentralized_roulette {
         instructions::lock_betting::handler(ctx)
     }
 
-    // VRF-related functions temporarily commented out
-    // pub fn spin_roulette(ctx: Context<SpinRoulette>) -> Result<()> {
-    //     instructions::spin_roulette::handler(ctx)
-    // }
+    // VRF-related functions for production-ready verifiable randomness
+    pub fn spin_roulette(ctx: Context<SpinRoulette>) -> Result<()> {
+        instructions::spin_roulette::handler(ctx)
+    }
 
-    // pub fn settle_randomness(ctx: Context<SettleRandomness>) -> Result<()> {
-    //     instructions::settle_randomness::handler(ctx)
-    // }
+    pub fn settle_randomness(ctx: Context<SettleRandomness>) -> Result<()> {
+        instructions::settle_randomness::handler(ctx)
+    }
 
     pub fn claim_winnings(ctx: Context<ClaimWinnings>) -> Result<()> {
         instructions::claim_winnings::handler(ctx)
@@ -61,5 +61,37 @@ pub mod decentralized_roulette {
 
     pub fn cancel_roulette(ctx: Context<CancelRoulette>, reason: String) -> Result<()> {
         instructions::cancel_roulette::handler(ctx, instructions::cancel_roulette::CancelRouletteArgs { reason })
+    }
+
+    // Automation instructions for continuous game management
+    pub fn process_game_lifecycle(ctx: Context<ProcessGameLifecycle>) -> Result<()> {
+        instructions::process_game_lifecycle::handler(ctx)
+    }
+
+    pub fn create_next_game(ctx: Context<CreateNextGame>, nonce: u64) -> Result<()> {
+        instructions::create_next_game::handler(ctx, nonce)
+    }
+
+    pub fn process_automation(ctx: Context<ProcessAutomation>) -> Result<()> {
+        instructions::process_automation::handler(ctx)
+    }
+
+    // TukTuk-based automatic lifecycle processing (crank-turner calls this)
+    pub fn public_lifecycle_keeper(ctx: Context<PublicLifecycleKeeper>) -> Result<()> {
+        instructions::public_lifecycle_keeper::handler(ctx)
+    }
+
+    // === EMERGENCY SECURITY CONTROLS ===
+    
+    /// Emergency pause/unpause functionality
+    /// Only callable by the global authority
+    pub fn emergency_pause_toggle(ctx: Context<EmergencyPauseToggle>, pause: bool) -> Result<()> {
+        instructions::emergency_pause::handler(ctx, pause)
+    }
+
+    /// Force end a game in emergency situations
+    /// Only callable by the global authority
+    pub fn force_end_game(ctx: Context<ForceEndGame>) -> Result<()> {
+        instructions::emergency_pause::force_end_game_handler(ctx)
     }
 }

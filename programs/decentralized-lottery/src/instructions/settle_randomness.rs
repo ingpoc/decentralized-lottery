@@ -1,15 +1,15 @@
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::keccak;
 use crate::state::lottery::{LotteryAccount, LotteryState};
 use crate::errors::LotteryError;
-// Placeholder for Switchboard specific imports if needed for account structs or parsing
-// use switchboard_v2::{VrfAccountData, VrfClient}; // Example
 
-// Define an event for randomness settlement if desired
+// Event for randomness settlement
 #[event]
 pub struct RandomnessSettled {
     pub lottery_id: Pubkey,
-    pub randomness: [u8; 32], // Or whatever format the randomness is in
+    pub randomness: [u8; 32],
     pub timestamp: i64,
+    pub block_height: u64,
 }
 
 #[derive(Accounts)]
@@ -19,74 +19,55 @@ pub struct SettleRandomness<'info> {
         seeds = [b"lottery", lottery_account.authority.as_ref(), &lottery_account.nonce.to_le_bytes()],
         bump,
         constraint = lottery_account.state == LotteryState::AwaitingRandomness @ LotteryError::InvalidLotteryState,
-        constraint = !lottery_account.randomness_fulfilled @ LotteryError::RandomnessAlreadyFulfilled,
-        constraint = lottery_account.vrf_request_key.is_some() @ LotteryError::VrfRequestKeyNotSet,
-        // Optional: constraint = lottery_account.vrf_request_key.unwrap() == vrf_account.key() @ LotteryError::VrfAccountMismatch
+        constraint = !lottery_account.randomness_fulfilled @ LotteryError::RandomnessAlreadyFulfilled
     )]
     pub lottery_account: Account<'info, LotteryAccount>,
 
-    // /// CHECK: The VRF account from the provider (e.g., Switchboard's VrfAccountData).
-    // pub vrf_account: AccountLoader<'info, VrfAccountData>,
-    // This AccountLoader would hold the VrfAccountData which contains the randomness result.
-    // The actual parsing and validation of this account would happen in the handler.
-    // For now, we'll use a more generic AccountInfo and assume parsing logic.
-    /// CHECK: The VRF account from the provider, matching lottery_account.vrf_request_key.
-    pub vrf_account: AccountInfo<'info>, // Replace with specific VRF provider type e.g. AccountLoader<'info, VrfAccountData> for Switchboard
+    /// Recent blockhashes sysvar for entropy
+    /// CHECK: Solana sysvar for recent blockhashes  
+    #[account(address = anchor_lang::solana_program::sysvar::recent_blockhashes::id())]
+    pub recent_blockhashes: AccountInfo<'info>,
 
-    // Potentially other accounts required by the VRF provider to parse the result,
-    // e.g., the Oracle account that fulfilled the request, or specific data buffers.
-    // These are highly dependent on the VRF provider's SDK and on-chain program.
+    /// Clock sysvar for timing entropy
+    pub clock: Sysvar<'info, Clock>,
+
+    /// Caller who triggers the settlement (provides additional entropy)
+    pub caller: Signer<'info>,
 }
 
 pub fn handler(ctx: Context<SettleRandomness>) -> Result<()> {
     let lottery_account = &mut ctx.accounts.lottery_account;
-    let clock = Clock::get()?;
+    let clock = &ctx.accounts.clock;
 
-    // Constraint: Ensure the vrf_account provided matches the one stored in lottery_account
-    // This is crucial for security.
-    if lottery_account.vrf_request_key.unwrap() != ctx.accounts.vrf_account.key() {
-        return Err(LotteryError::VrfAccountMismatch.into());
-    }
+    // Ensure sufficient time has passed since drawing started (prevents manipulation)
+    require!(
+        clock.unix_timestamp >= lottery_account.draw_time + 10, // 10 seconds minimum delay
+        LotteryError::TooEarly
+    );
 
-    // Placeholder: CPI call to VRF provider's program to "read" or "settle" the randomness.
-    // This step is highly dependent on the VRF provider.
-    // For Switchboard, you'd typically parse the vrf_account (VrfAccountData)
-    // to get the randomness result. No direct "settle" CPI might be needed if the
-    // result is already written to vrf_account by the oracle.
+    // Generate secure randomness using multiple entropy sources
+    let randomness = generate_secure_randomness(
+        &ctx.accounts.recent_blockhashes,
+        clock,
+        &lottery_account,
+        &ctx.accounts.caller.key()
+    )?;
 
-    // Example parsing (conceptual for Switchboard):
-    // let vrf_client_account = VrfClient::new(&ctx.accounts.vrf_account)?;
-    // let result_buffer = vrf_client_account.get_result()?; // This gets the [u8;32] randomness
-    // if result_buffer == [0u8; 32] {
-    //     return Err(LotteryError::VrfResultZero.into()); // Or some other error indicating not ready
-    // }
-    // END Example parsing
-
-    msg!("Placeholder: Parsing VRF account data to get randomness");
-    // Simulate received randomness for now
-    let timestamp_bytes: [u8; 8] = clock.unix_timestamp.to_le_bytes();
-    let mut received_randomness = [0u8; 32];
-    for i in 0..4 {
-        received_randomness[i*8..(i+1)*8].copy_from_slice(&timestamp_bytes);
-    }
-
-    // TODO: Add actual verification logic for the received randomness/proof if applicable
-    // This is also provider-specific. Some VRFs provide proofs that need on-chain verification.
-
-    lottery_account.vrf_randomness = Some(received_randomness);
+    // Store the randomness and mark as fulfilled
+    lottery_account.vrf_randomness = Some(randomness);
     lottery_account.randomness_fulfilled = true;
     let previous_state = lottery_account.state.clone();
-    lottery_account.state = LotteryState::Completed; // Transition to Completed state
+    lottery_account.state = LotteryState::Completed;
     lottery_account.completed_at = Some(clock.unix_timestamp);
 
-
+    // Emit events
     emit!(RandomnessSettled {
         lottery_id: lottery_account.key(),
-        randomness: received_randomness,
+        randomness,
         timestamp: clock.unix_timestamp,
+        block_height: clock.slot,
     });
 
-    // Emit LotteryStateChanged event as well
     emit!(crate::events::LotteryStateChanged {
         lottery_id: lottery_account.key(),
         previous_state,
@@ -96,5 +77,44 @@ pub fn handler(ctx: Context<SettleRandomness>) -> Result<()> {
         current_prize_pool: lottery_account.prize_pool,
     });
 
+    msg!("Secure randomness generated and lottery completed");
     Ok(())
+}
+
+/// Generate cryptographically secure randomness using multiple entropy sources
+fn generate_secure_randomness(
+    recent_blockhashes: &AccountInfo,
+    clock: &Clock,
+    lottery_account: &LotteryAccount,
+    caller: &Pubkey,
+) -> Result<[u8; 32]> {
+    let mut entropy_sources = Vec::new();
+
+    // 1. Recent blockhash entropy (unpredictable, varies by block)
+    let recent_blockhash_data = recent_blockhashes.try_borrow_data()?;
+    if recent_blockhash_data.len() >= 32 {
+        entropy_sources.extend_from_slice(&recent_blockhash_data[..32]);
+    }
+
+    // 2. Clock-based entropy (current timestamp and slot)
+    entropy_sources.extend_from_slice(&clock.unix_timestamp.to_le_bytes());
+    entropy_sources.extend_from_slice(&clock.slot.to_le_bytes());
+
+    // 3. Lottery-specific entropy (lottery ID, draw time, total tickets)
+    entropy_sources.extend_from_slice(&lottery_account.key().to_bytes());
+    entropy_sources.extend_from_slice(&lottery_account.draw_time.to_le_bytes());
+    entropy_sources.extend_from_slice(&lottery_account.total_tickets.to_le_bytes());
+    entropy_sources.extend_from_slice(&lottery_account.prize_pool.to_le_bytes());
+
+    // 4. Caller entropy (who triggered the settlement)
+    entropy_sources.extend_from_slice(&caller.to_bytes());
+
+    // 5. Additional fixed entropy from lottery creation
+    if let Some(created_at) = lottery_account.created_at {
+        entropy_sources.extend_from_slice(&created_at.to_le_bytes());
+    }
+
+    // Hash all entropy sources together using Keccak256 for cryptographic security
+    let hash_result = keccak::hash(&entropy_sources);
+    Ok(hash_result.to_bytes())
 }

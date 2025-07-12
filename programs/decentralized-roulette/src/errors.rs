@@ -79,4 +79,16 @@ pub enum RouletteError {
     
     #[msg("Cannot place duplicate bets")]
     DuplicateBet = 6025,
+    
+    #[msg("Invalid bet amount")]
+    InvalidBetAmount = 6026,
+    
+    #[msg("Betting is closed")]
+    BettingClosed = 6027,
+    
+    #[msg("Game is full - maximum players reached")]
+    GameFull = 6028,
+    
+    #[msg("Too many bets - potential DoS attack")]
+    TooManyBets = 6029,
 }

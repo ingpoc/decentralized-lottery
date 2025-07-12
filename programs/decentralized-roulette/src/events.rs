@@ -83,6 +83,7 @@ pub struct RouletteStateChanged {
 #[event]
 pub struct RouletteExpired {
     pub roulette_id: Pubkey,
+    pub reason: String,
     pub total_refunds: u64,
     pub timestamp: i64,
 }
@@ -92,5 +93,22 @@ pub struct RouletteCancelled {
     pub roulette_id: Pubkey,
     pub reason: String,
     pub total_refunds: u64,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct PayoutClaimed {
+    pub roulette_id: Pubkey,
+    pub bet_id: u64,
+    pub bettor: Pubkey,
+    pub payout_amount: u64,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct EmergencyPause {
+    pub authority: Pubkey,
+    pub previous_state: bool,
+    pub new_state: bool,
     pub timestamp: i64,
 }
