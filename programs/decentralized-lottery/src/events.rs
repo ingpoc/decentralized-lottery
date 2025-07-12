@@ -147,3 +147,25 @@ pub struct TreasuryWithdrawal {
     pub timestamp: i64,
     pub is_emergency: bool,
 }
+
+#[event]
+/// Event emitted when emergency pause is toggled.
+/// - Purpose: Records emergency pause state changes for transparency and audit.
+/// - Context: Triggered by the `emergency_pause_toggle` instruction when admin changes system state.
+pub struct EmergencyPause {
+    pub authority: Pubkey,
+    pub previous_state: bool,
+    pub new_state: bool,
+    pub timestamp: i64,
+}
+
+#[event]
+/// Event emitted when a lottery is cancelled by authority.
+/// - Purpose: Records forced cancellation of lotteries in emergency situations.
+/// - Context: Triggered by the `force_cancel_lottery` instruction when admin cancels a lottery.
+pub struct LotteryCancelled {
+    pub lottery_id: Pubkey,
+    pub reason: String,
+    pub total_refunds: u64,
+    pub timestamp: i64,
+}

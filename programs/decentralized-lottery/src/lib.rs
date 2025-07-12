@@ -61,5 +61,19 @@ pub mod decentralized_lottery {
         instructions::settle_randomness::handler(ctx)
     }
 
+    // === EMERGENCY SECURITY CONTROLS ===
+    
+    /// Emergency pause/unpause functionality
+    /// Only callable by the global admin
+    pub fn emergency_pause_toggle(ctx: Context<EmergencyPauseToggle>, pause: bool) -> Result<()> {
+        instructions::emergency_pause::emergency_pause_toggle_handler(ctx, pause)
+    }
+
+    /// Force cancel a lottery in emergency situations
+    /// Only callable by the global admin
+    pub fn force_cancel_lottery(ctx: Context<ForceCancelLottery>, reason: String) -> Result<()> {
+        instructions::emergency_pause::force_cancel_lottery_handler(ctx, reason)
+    }
+
     // Add other instruction handlers as needed (e.g., for VRF)
 }
