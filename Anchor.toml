@@ -6,14 +6,18 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-decentralized_lottery = "Bvc68V4GSX9Tc1k11HetENR1z9Q4CHPvQVtRAKGoSfp9"
-decentralized_roulette = "CWiMTzfG7e3Jdta6sSsm9xVZjiA1ZHdtwuYjpQyjrW4F"
+decentralized_lottery = "9G1iJ7M8fNotapwrW9o9EgB3EeobrzHPyL8kgmQGQGvz"
+decentralized_roulette = "HFpMuAtTLCJQoo1bxZ9XUfyoaABSjhDf7ehgjpBBgDJo"
+
+[programs.localnet]
+decentralized_lottery = "BH1qtDhU6PtB1jrUJPf8JoNt34ELuTvVTDktDLFyq2JV"
+decentralized_roulette = "saLmMwuHKHDvaaPsA6GRaEjjzvmhx1VRgJGYeJpNDbr"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "Devnet"
+cluster = "Localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

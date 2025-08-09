@@ -106,13 +106,17 @@ pub fn handler(ctx: Context<CreateNextGame>, nonce: u64) -> Result<()> {
     
     emit!(RouletteCreated {
         roulette_id: roulette.key(),
-        creator: ctx.accounts.caller.key(),
+        authority: ctx.accounts.caller.key(),
         roulette_type: roulette_type.clone(),
         min_bet,
         max_bet,
         game_duration,
         start_time: clock.unix_timestamp,
         betting_end_time: roulette.betting_end_time,
+        spin_time: roulette.spin_time,
+        end_time: roulette.end_time,
+        is_autonomous: true,
+        keeper: ctx.accounts.caller.key(),
         timestamp: clock.unix_timestamp,
     });
     
@@ -126,7 +130,7 @@ pub fn handler(ctx: Context<CreateNextGame>, nonce: u64) -> Result<()> {
 }
 
 /// Helper function to process existing games' lifecycle when new games are created
-fn process_existing_games_lifecycle(global_config: &GlobalConfig, clock: &Clock) -> Result<()> {
+fn process_existing_games_lifecycle(_global_config: &GlobalConfig, _clock: &Clock) -> Result<()> {
     // Log that we're processing existing games
     msg!("Processing existing games lifecycle during new game creation");
     

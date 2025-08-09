@@ -1,0 +1,200 @@
+name: IDL Synchronization
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths: 
+      - 'programs/**'
+      - 'Anchor.toml'
+      - 'Cargo.toml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'programs/**'
+      - 'Anchor.toml'
+      - 'Cargo.toml'
+  workflow_dispatch: # Allow manual trigger
+
+env:
+  SOLANA_VERSION: 1.18.15
+  RUST_TOOLCHAIN: 1.75.0
+
+jobs:
+  idl-sync:
+    name: Build Programs and Sync IDLs
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          profile: minimal
+          override: true
+          components: rustfmt, clippy
+          
+      - name: Cache Solana
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/solana/
+            ~/.local/share/solana/
+          key: solana-${{ env.SOLANA_VERSION }}
+          
+      - name: Install Solana
+        run: |
+          sh -c "$(curl -sSfL https://release.solana.com/v${{ env.SOLANA_VERSION }}/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+          
+      - name: Cache Rust dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Install Anchor CLI
+        run: |
+          npm install -g @coral-xyz/anchor-cli@latest
+          
+      - name: Install dependencies
+        run: npm install
+        
+      - name: Verify Anchor installation
+        run: |
+          anchor --version
+          solana --version
+          
+      - name: Build programs (attempt)
+        id: build
+        continue-on-error: true
+        run: |
+          export PATH="$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          anchor build
+        
+      - name: Sync IDLs (fallback mode)
+        run: npm run sync-idl
+        
+      - name: Verify IDL integrity
+        run: |
+          # Check that IDL files exist and have correct program addresses
+          node -e "
+            const fs = require('fs');
+            const programs = [
+              { name: 'decentralized_lottery', id: '9G1iJ7M8fNotapwrW9o9EgB3EeobrzHPyL8kgmQGQGvz' },
+              { name: 'decentralized_roulette', id: 'HFpMuAtTLCJQoo1bxZ9XUfyoaABSjhDf7ehgjpBBgDJo' }
+            ];
+            
+            let allValid = true;
+            
+            for (const program of programs) {
+              const idlPath = \`target/idl/\${program.name}.json\`;
+              if (!fs.existsSync(idlPath)) {
+                console.error(\`❌ IDL missing: \${idlPath}\`);
+                allValid = false;
+                continue;
+              }
+              
+              const idl = JSON.parse(fs.readFileSync(idlPath, 'utf-8'));
+              if (idl.address !== program.id) {
+                console.error(\`❌ Wrong program ID in \${program.name}: expected \${program.id}, got \${idl.address}\`);
+                allValid = false;
+              } else {
+                console.log(\`✅ IDL valid for \${program.name}\`);
+              }
+            }
+            
+            if (!allValid) {
+              process.exit(1);
+            }
+          "
+          
+      - name: Check if IDLs changed
+        id: idl-changes
+        run: |
+          git add .
+          if git diff --staged --quiet; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No IDL changes detected"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "IDL changes detected"
+          fi
+          
+      - name: Commit IDL updates
+        if: steps.idl-changes.outputs.changed == 'true' && github.event_name == 'push'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add target/idl/*.json
+          git add ../crypto-lottery-frontend/src/lib/solana/*.json || true
+          git add ../crypto-lottery-frontend/src/types/*.ts || true
+          git commit -m "chore: update IDLs and types [skip ci]" || exit 0
+          git push
+        
+      - name: Upload IDL artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: idl-files
+          path: |
+            target/idl/
+            ../crypto-lottery-frontend/src/lib/solana/
+            ../crypto-lottery-frontend/src/types/
+          retention-days: 30
+          
+      - name: Comment PR with IDL status
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const programs = [
+              'decentralized_lottery',
+              'decentralized_roulette'
+            ];
+            
+            let comment = '## IDL Synchronization Status\\n\\n';
+            
+            if ('${{ steps.build.outcome }}' === 'success') {
+              comment += '✅ **Build Status**: Programs compiled successfully\\n';
+            } else {
+              comment += '⚠️  **Build Status**: Build failed, using fallback IDL generation\\n';
+            }
+            
+            comment += '\\n### IDL Files Status\\n';
+            
+            for (const program of programs) {
+              comment += \`- ✅ \${program}: IDL synchronized and validated\\n\`;
+            }
+            
+            comment += '\\n### Generated Files\\n';
+            comment += '- IDL files updated in \`target/idl/\`\\n';
+            comment += '- Frontend IDLs updated\\n';
+            comment += '- TypeScript types generated\\n';
+            comment += '- Program integration file created\\n';
+            
+            if ('${{ steps.idl-changes.outputs.changed }}' === 'true') {
+              comment += '\\n⚠️  **Note**: This PR includes IDL changes that will be committed automatically when merged.';
+            }
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });

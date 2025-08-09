@@ -8,129 +8,169 @@ use crate::events::PrizeClaimed;
 
 #[derive(Accounts)]
 pub struct ClaimPrize<'info> {
-    #[account(
-        mut,
-        seeds = [b"lottery", lottery_account.authority.as_ref(), &lottery_account.nonce.to_le_bytes()],
-        bump,
-        constraint = lottery_account.state == LotteryState::Completed @ LotteryError::InvalidLotteryState,
-        constraint = lottery_account.winning_ticket.is_some() @ LotteryError::NoWinnerSelected,
-        constraint = lottery_account.winning_ticket.unwrap() == ticket_account.key() @ LotteryError::InvalidWinningTicket,
-        constraint = !lottery_account.is_claimed @ LotteryError::LotteryAlreadyClaimed
-    )]
-    pub lottery_account: Account<'info, LotteryAccount>,
-
-    #[account(
-        mut,
-        constraint = !ticket_account.is_claimed @ LotteryError::TicketAlreadyClaimed,
-        constraint = ticket_account.lottery == lottery_account.key() @ LotteryError::TicketNotForThisLottery,
-        constraint = ticket_account.buyer == winner.key() @ LotteryError::UnauthorizedAccess // Winner is the signer
-    )]
-    pub ticket_account: Account<'info, TicketAccount>,
-
-    #[account(
-        seeds = [b"global_config_v2"],
-        bump
-    )]
-    pub global_config: Account<'info, GlobalConfig>,
+    #[account(mut)]
+    pub lottery_account: AccountInfo<'info>,
 
     #[account(mut)]
-    pub winner: Signer<'info>, // This is the buyer of the winning ticket
+    pub ticket_account: AccountInfo<'info>,
 
-    #[account(
-        mut,
-        constraint = lottery_token_account.mint == global_config.usdc_mint @ LotteryError::InvalidTokenAccount,
-        seeds = [b"lottery_vault", lottery_account.key().as_ref()],
-        bump
-    )]
-    pub lottery_token_account: Account<'info, TokenAccount>,
+    pub global_config: AccountInfo<'info>,
 
-    #[account(
-        mut,
-        constraint = winner_token_account.mint == global_config.usdc_mint @ LotteryError::InvalidTokenAccount,
-        constraint = winner_token_account.owner == winner.key() @ LotteryError::InvalidTokenAccount
-    )]
-    pub winner_token_account: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub winner: Signer<'info>,
 
-    #[account(
-        mut,
-        constraint = treasury_token_account.mint == global_config.usdc_mint @ LotteryError::InvalidTokenAccount,
-        constraint = treasury_token_account.key() == global_config.treasury_token_account @ LotteryError::InvalidTokenAccount
-    )]
-    pub treasury_token_account: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub lottery_token_account: AccountInfo<'info>,
+
+    #[account(mut)]
+    pub winner_token_account: AccountInfo<'info>,
+
+    #[account(mut)]
+    pub treasury_token_account: AccountInfo<'info>,
 
     pub token_program: Program<'info, Token>,
-    pub system_program: Program<'info, System>,
 }
 
-pub fn handler(ctx: Context<ClaimPrize>) -> Result<()> {
-    let lottery_account = &mut ctx.accounts.lottery_account;
-    let ticket_account = &mut ctx.accounts.ticket_account;
-    let global_config = &ctx.accounts.global_config;
+pub fn claim_prize_handler(ctx: Context<ClaimPrize>) -> Result<()> {
     let clock = Clock::get()?;
+    
+    // Deserialize accounts efficiently
+    let lottery_data = ctx.accounts.lottery_account.try_borrow_data()?;
+    let mut lottery_account: LotteryAccount = LotteryAccount::try_deserialize(&mut lottery_data.as_ref())?;
+    drop(lottery_data);
+    
+    let ticket_data = ctx.accounts.ticket_account.try_borrow_data()?;
+    let mut ticket_account: TicketAccount = TicketAccount::try_deserialize(&mut ticket_data.as_ref())?;
+    drop(ticket_data);
+    
+    let config_data = ctx.accounts.global_config.try_borrow_data()?;
+    let global_config: GlobalConfig = GlobalConfig::try_deserialize(&mut config_data.as_ref())?;
+    drop(config_data);
 
-    // Calculate treasury fee and winner payout
-    let treasury_fee = lottery_account.prize_pool
-        .checked_mul(global_config.treasury_fee_percentage as u64)
-        .ok_or(LotteryError::ArithmeticOverflow)?
-        .checked_div(10000) // basis points (e.g., 250 for 2.5%)
-        .ok_or(LotteryError::ArithmeticOverflow)?;
+    // Validate PDAs
+    let lottery_seeds = &[
+        b"lottery",
+        lottery_account.authority.as_ref(),
+        &lottery_account.nonce.to_le_bytes()
+    ];
+    let (expected_lottery_key, _) = Pubkey::find_program_address(lottery_seeds, ctx.program_id);
+    require!(expected_lottery_key == ctx.accounts.lottery_account.key(), LotteryError::InvalidAccount);
+    
+    let config_seeds: &[&[u8]] = &[b"global_config_v2"];
+    let (expected_config_key, _) = Pubkey::find_program_address(config_seeds, ctx.program_id);
+    require!(expected_config_key == ctx.accounts.global_config.key(), LotteryError::InvalidAccount);
 
-    let winner_payout = lottery_account.prize_pool
-        .checked_sub(treasury_fee)
-        .ok_or(LotteryError::ArithmeticOverflow)?;
+    let lottery_key = ctx.accounts.lottery_account.key();
+    let vault_seeds = &[b"lottery_vault", lottery_key.as_ref()];
+    let (expected_vault_key, vault_bump) = Pubkey::find_program_address(vault_seeds, ctx.program_id);
+    require!(expected_vault_key == ctx.accounts.lottery_token_account.key(), LotteryError::InvalidAccount);
 
-    // Verify sufficient funds for transfers
+    // Validate lottery state and winning ticket
+    require!(lottery_account.state == LotteryState::Completed, LotteryError::InvalidLotteryState);
+    
+    let winning_ticket_key = lottery_account.winning_ticket.ok_or(LotteryError::NoWinnerSelected)?;
+    require!(winning_ticket_key == ctx.accounts.ticket_account.key(), LotteryError::InvalidWinningTicket);
+    
+    // Validate claim status and ownership
     require!(
-        ctx.accounts.lottery_token_account.amount >= lottery_account.prize_pool,
-        LotteryError::InsufficientFunds
+        !lottery_account.get_is_claimed() && 
+        !ticket_account.is_claimed &&
+        ticket_account.lottery == ctx.accounts.lottery_account.key() &&
+        ticket_account.buyer == ctx.accounts.winner.key(),
+        LotteryError::InvalidClaim
     );
 
-    // Signer seeds for lottery vault PDA to authorize token transfers
-    let lottery_key = lottery_account.key();
-    let lottery_vault_seeds = &[
-        b"lottery_vault",
-        lottery_key.as_ref(),
-        &[ctx.bumps.lottery_token_account]
-    ];
-    let authority_seeds: &[&[&[u8]]] = &[&lottery_vault_seeds[..]];
+    // Calculate treasury fee and winner payout
+    let prize_pool = lottery_account.prize_pool;
+    let treasury_fee = prize_pool
+        .checked_mul(global_config.treasury_fee_percentage as u64)
+        .ok_or(LotteryError::ArithmeticOverflow)?
+        .checked_div(10000)
+        .ok_or(LotteryError::ArithmeticOverflow)?;
+
+    let winner_payout = prize_pool.checked_sub(treasury_fee).ok_or(LotteryError::ArithmeticOverflow)?;
+
+    // Parse token accounts efficiently
+    let lottery_token_data = ctx.accounts.lottery_token_account.try_borrow_data()?;
+    let lottery_token: TokenAccount = TokenAccount::try_deserialize(&mut lottery_token_data.as_ref())?;
+    
+    require!(lottery_token.amount >= prize_pool, LotteryError::InsufficientFunds);
+    require!(lottery_token.mint == global_config.usdc_mint, LotteryError::InvalidTokenAccount);
+    drop(lottery_token_data);
+
+    // Validate token accounts
+    let winner_token_data = ctx.accounts.winner_token_account.try_borrow_data()?;
+    let winner_token: TokenAccount = TokenAccount::try_deserialize(&mut winner_token_data.as_ref())?;
+    require!(
+        winner_token.mint == global_config.usdc_mint && 
+        winner_token.owner == ctx.accounts.winner.key(),
+        LotteryError::InvalidTokenAccount
+    );
+    drop(winner_token_data);
+
+    let treasury_token_data = ctx.accounts.treasury_token_account.try_borrow_data()?;
+    let treasury_token: TokenAccount = TokenAccount::try_deserialize(&mut treasury_token_data.as_ref())?;
+    require!(
+        treasury_token.mint == global_config.usdc_mint &&
+        ctx.accounts.treasury_token_account.key() == global_config.treasury_token_account,
+        LotteryError::InvalidTokenAccount
+    );
+    drop(treasury_token_data);
+
+    // Create PDA seeds for lottery vault authorization
+    let authority_seeds = &[b"lottery_vault", lottery_key.as_ref(), &[vault_bump]];
+    let signer_seeds: &[&[&[u8]]] = &[&authority_seeds[..]];
 
     // Transfer treasury fee
     if treasury_fee > 0 {
-        let cpi_accounts = Transfer {
-            from: ctx.accounts.lottery_token_account.to_account_info(),
-            to: ctx.accounts.treasury_token_account.to_account_info(),
-            authority: ctx.accounts.lottery_token_account.to_account_info(), // Token account PDA is the authority
-        };
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, authority_seeds);
-        token::transfer(cpi_ctx, treasury_fee)?;
+        let transfer_ctx = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            Transfer {
+                from: ctx.accounts.lottery_token_account.clone(),
+                to: ctx.accounts.treasury_token_account.clone(),
+                authority: ctx.accounts.lottery_token_account.clone(),
+            },
+            signer_seeds,
+        );
+        token::transfer(transfer_ctx, treasury_fee)?;
     }
 
     // Transfer winner payout
     if winner_payout > 0 {
-        let cpi_accounts = Transfer {
-            from: ctx.accounts.lottery_token_account.to_account_info(),
-            to: ctx.accounts.winner_token_account.to_account_info(),
-            authority: ctx.accounts.lottery_token_account.to_account_info(), // Token account PDA is the authority
-        };
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, authority_seeds);
-        token::transfer(cpi_ctx, winner_payout)?;
+        let transfer_ctx = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            Transfer {
+                from: ctx.accounts.lottery_token_account.clone(),
+                to: ctx.accounts.winner_token_account.clone(),
+                authority: ctx.accounts.lottery_token_account.clone(),
+            },
+            signer_seeds,
+        );
+        token::transfer(transfer_ctx, winner_payout)?;
     }
 
-    lottery_account.is_claimed = true;
+    // Update state
+    lottery_account.set_is_claimed(true);
     ticket_account.is_claimed = true;
 
-    msg!("Prize claimed for lottery {} by ticket {}", lottery_account.key(), ticket_account.key());
+    // Write updated data back
+    let mut lottery_data_mut = ctx.accounts.lottery_account.try_borrow_mut_data()?;
+    lottery_account.try_serialize(&mut lottery_data_mut.as_mut())?;
+    drop(lottery_data_mut);
+
+    let mut ticket_data_mut = ctx.accounts.ticket_account.try_borrow_mut_data()?;
+    ticket_account.try_serialize(&mut ticket_data_mut.as_mut())?;
+    drop(ticket_data_mut);
 
     emit!(PrizeClaimed {
-        lottery_id: lottery_account.key(),
-        ticket_id: ticket_account.id, // Assuming TicketAccount has an 'id' field for the numerical ID
+        lottery_id: ctx.accounts.lottery_account.key(),
+        ticket_id: ticket_account.id,
         winner: ticket_account.buyer,
         prize_pool: lottery_account.prize_pool,
         treasury_fee,
         winner_payout,
         timestamp: clock.unix_timestamp,
     });
+
     Ok(())
 }

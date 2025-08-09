@@ -26,7 +26,7 @@ pub struct TransitionState<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handler(ctx: Context<TransitionState>, next_state_param: LotteryState) -> Result<()> {
+pub fn transition_state_handler(ctx: Context<TransitionState>, next_state_param: LotteryState) -> Result<()> {
     let lottery_account = &mut ctx.accounts.lottery_account;
     let clock = Clock::get()?;
     let current_state = lottery_account.state.clone();
@@ -49,7 +49,7 @@ pub fn handler(ctx: Context<TransitionState>, next_state_param: LotteryState) ->
         (LotteryState::Open, LotteryState::Locked) => {
             // Lock the lottery - stop accepting new tickets
             // This prepares the lottery for drawing by preventing further ticket sales
-            lottery_account.is_prize_pool_locked = true;
+            lottery_account.set_is_prize_pool_locked(true);
         },
         (LotteryState::Locked, LotteryState::Drawing) => {
             // Transition from Locked to Drawing - begin the drawing process
@@ -91,7 +91,7 @@ pub fn handler(ctx: Context<TransitionState>, next_state_param: LotteryState) ->
             });
         },
         (LotteryState::Open, LotteryState::Drawing) => { // This will now become AwaitingRandomness
-            if lottery_account.draw_time > clock.unix_timestamp && !lottery_account.auto_transition {
+            if lottery_account.draw_time > clock.unix_timestamp && !lottery_account.auto_transition() {
                  // Manual transition to Drawing before draw_time by admin
                  // Or if auto_transition is true, this check might be bypassed or handled by cron
             }

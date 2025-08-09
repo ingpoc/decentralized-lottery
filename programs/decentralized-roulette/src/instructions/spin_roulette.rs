@@ -23,8 +23,11 @@ pub struct SpinRoulette<'info> {
     pub global_config: Account<'info, GlobalConfig>,
     
     /// Randomness account for random number generation  
-    /// CHECK: Switchboard randomness account
-    #[account(mut)]
+    /// CHECK: Validate that the randomness account is authorized for this roulette
+    #[account(
+        mut,
+        constraint = randomness.owner == &roulette.authority || randomness.key() == roulette.vrf_client.unwrap_or(Pubkey::default()) @ RouletteError::VrfRequestUnauthorized
+    )]
     pub randomness: UncheckedAccount<'info>,
     
     /// Anyone can call this instruction when the spin time arrives

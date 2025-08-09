@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("Bvc68V4GSX9Tc1k11HetENR1z9Q4CHPvQVtRAKGoSfp9");
+declare_id!("BH1qtDhU6PtB1jrUJPf8JoNt34ELuTvVTDktDLFyq2JV");
 
 pub mod errors;
 pub mod events;
@@ -16,7 +16,7 @@ pub mod decentralized_lottery {
     use super::*;
 
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
-        instructions::initialize::handler(ctx)
+        instructions::initialize::initialize_handler(ctx)
     }
 
     pub fn create_lottery(
@@ -27,7 +27,7 @@ pub mod decentralized_lottery {
         target_prize_pool: u64,
         nonce: u64,
     ) -> Result<()> {
-        instructions::create_lottery::handler(
+        instructions::create_lottery::create_lottery_handler(
             ctx,
             lottery_type_enum,
             ticket_price,
@@ -38,27 +38,32 @@ pub mod decentralized_lottery {
     }
 
     pub fn buy_ticket(ctx: Context<BuyTicket>) -> Result<()> {
-        instructions::buy_ticket::handler(ctx)
+        instructions::buy_ticket::buy_ticket_handler(ctx)
     }
 
     pub fn transition_state(ctx: Context<TransitionState>, next_state: LotteryState) -> Result<()> {
-        instructions::transition_state::handler(ctx, next_state)
+        instructions::transition_state::transition_state_handler(ctx, next_state)
     }
 
     pub fn select_winner(ctx: Context<SelectWinner>) -> Result<()> {
-        instructions::select_winner::handler(ctx)
+        instructions::select_winner::select_winner_handler(ctx)
     }
             
     pub fn claim_prize(ctx: Context<ClaimPrize>) -> Result<()> {
-        instructions::claim_prize::handler(ctx)
+        instructions::claim_prize::claim_prize_handler(ctx)
     }
 
-    pub fn update_config(ctx: Context<UpdateConfig> /*, new_fee_percentage: Option<u16> */) -> Result<()> {
-        instructions::update_config::handler(ctx /*, new_fee_percentage */)
+    pub fn update_config(
+        ctx: Context<UpdateConfig>,
+        new_fee_percentage: Option<u16>,
+        new_admin: Option<Pubkey>,
+        is_paused: Option<bool>
+    ) -> Result<()> {
+        instructions::update_config::update_config_handler(ctx, new_fee_percentage, new_admin, is_paused)
     }
 
     pub fn settle_randomness(ctx: Context<SettleRandomness>) -> Result<()> {
-        instructions::settle_randomness::handler(ctx)
+        instructions::settle_randomness::settle_randomness_handler(ctx)
     }
 
     // === EMERGENCY SECURITY CONTROLS ===

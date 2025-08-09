@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "pre-edit": ".claude/hooks/version-guard.sh",
+    "pre-bash": ".claude/hooks/version-guard.sh",
+    "session-start": ".claude/hooks/version-guard.sh"
+  },
+  "description": "Claude Code settings for decentralized lottery project",
+  "project": {
+    "name": "Decentralized Lottery",
+    "type": "solana-anchor",
+    "networks": ["localnet", "devnet", "mainnet"],
+    "primary_network": "localnet"
+  },
+  "validation": {
+    "enforce_version_consistency": true,
+    "check_program_ids": true,
+    "validate_network_config": true
+  }
+}

@@ -6,7 +6,7 @@ use crate::state::{
 };
 use crate::constants::*;
 use crate::events::RouletteCreated;
-use crate::errors::RouletteError;
+
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
@@ -119,13 +119,17 @@ pub fn handler(ctx: Context<Initialize>) -> Result<()> {
     
     emit!(RouletteCreated {
         roulette_id: first_roulette.key(),
-        creator: ctx.accounts.authority.key(),
+        authority: ctx.accounts.authority.key(),
         roulette_type: roulette_type.clone(),
         min_bet,
         max_bet,
         game_duration,
         start_time: clock.unix_timestamp,
         betting_end_time: first_roulette.betting_end_time,
+        spin_time: first_roulette.spin_time,
+        end_time: first_roulette.end_time,
+        is_autonomous: false,
+        keeper: ctx.accounts.authority.key(),
         timestamp: clock.unix_timestamp,
     });
     

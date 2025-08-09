@@ -1,53 +1,70 @@
-// Add account size constant and helper methods
 impl LotteryAccount {
     pub const ACCOUNT_SIZE: usize = 8 + // Discriminator
-        // Base fields
-        (4 + 1) +      // lottery_type enum (1 byte + 4 for enum tag)
+        1 +            // lottery_type enum (compact)
         8 +            // ticket_price u64
         8 +            // draw_time i64
         8 +            // prize_pool u64
         8 +            // total_tickets u64
         (1 + 32) +     // Option<Pubkey> winning_ticket
-        (4 + 1) +      // state enum (1 byte + 4 for enum tag)
-        32 +           // created_by Pubkey
-        32 +           // global_config Pubkey
-        1 +            // auto_transition bool
-        8 +            // last_ticket_id u64
+        1 +            // state enum (compact)
         32 +           // authority Pubkey
-        
-        // VRF-related fields
+        8 +            // last_ticket_id u64
         (1 + 32) +     // Option<Pubkey> vrf_client
+        (1 + 32) +     // Option<Pubkey> vrf_request_key
         (1 + 32) +     // Option<[u8; 32]> vrf_randomness
-        (1 + 32) +     // Option<Pubkey> vrf_request_account
-        (1 + 32) +     // Option<Pubkey> oracle_pubkey
-        (1 + 32) +     // vrf_request_key: Option<Pubkey>
-        1 +            // randomness_fulfilled: bool
-        
-        // Prize and state tracking
-        1 +            // is_prize_pool_locked bool
-        8 +            // target_prize_pool u64
-        1 +            // is_claimed bool
-        
-        // Additional metadata
+        1 +            // randomness_fulfilled bool
+        1 +            // flags u8
         8 +            // created_at i64
         (1 + 8) +      // Option<i64> completed_at
         8;             // nonce u64
+    // Flag bit masks
+    const AUTO_TRANSITION_FLAG: u8 = 1 << 0;
+    const PRIZE_POOL_LOCKED_FLAG: u8 = 1 << 1;
+    const IS_CLAIMED_FLAG: u8 = 1 << 2;
     
-    // Helper method to initialize VRF fields
-    pub fn initialize_vrf(&mut self, vrf_client: Pubkey, oracle_pubkey: Option<Pubkey>, vrf_request_key: Pubkey) {
-        self.vrf_client = Some(vrf_client);
-        self.oracle_pubkey = oracle_pubkey; // Store if provided, could be None
-        self.vrf_request_key = Some(vrf_request_key);
-        self.randomness_fulfilled = false;
-        self.vrf_randomness = None;
+    // Flag helper methods
+    pub fn get_auto_transition(&self) -> bool {
+        self.flags & Self::AUTO_TRANSITION_FLAG != 0
     }
     
-    // Helper method to store VRF randomness
+    pub fn set_auto_transition(&mut self, value: bool) {
+        if value {
+            self.flags |= Self::AUTO_TRANSITION_FLAG;
+        } else {
+            self.flags &= !Self::AUTO_TRANSITION_FLAG;
+        }
+    }
+    
+    pub fn get_is_prize_pool_locked(&self) -> bool {
+        self.flags & Self::PRIZE_POOL_LOCKED_FLAG != 0
+    }
+    
+    pub fn set_is_prize_pool_locked(&mut self, value: bool) {
+        if value {
+            self.flags |= Self::PRIZE_POOL_LOCKED_FLAG;
+        } else {
+            self.flags &= !Self::PRIZE_POOL_LOCKED_FLAG;
+        }
+    }
+    
+    pub fn get_is_claimed(&self) -> bool {
+        self.flags & Self::IS_CLAIMED_FLAG != 0
+    }
+    
+    pub fn set_is_claimed(&mut self, value: bool) {
+        if value {
+            self.flags |= Self::IS_CLAIMED_FLAG;
+        } else {
+            self.flags &= !Self::IS_CLAIMED_FLAG;
+        }
+    }
+    
+    // VRF helper methods
     pub fn store_vrf_randomness(&mut self, randomness: [u8; 32]) {
         self.vrf_randomness = Some(randomness);
+        self.randomness_fulfilled = true;
     }
     
-    // Helper method to get a random u64 from the stored randomness
     pub fn get_random_u64(&self) -> Option<u64> {
         self.vrf_randomness.map(|randomness| {
             let mut bytes = [0u8; 8];
@@ -56,16 +73,34 @@ impl LotteryAccount {
         })
     }
     
-    // Helper method to select a winning ticket using the stored randomness
     pub fn select_winning_ticket(&self) -> Option<u64> {
         if self.total_tickets == 0 {
             return None;
         }
         
         self.get_random_u64().map(|random_value| {
-            // Use modulo to select a ticket within the valid range
             random_value % self.total_tickets
         })
+    }
+    
+    // Helper methods for new fields
+    pub fn mark_completed(&mut self, timestamp: i64) {
+        self.completed_at = Some(timestamp);
+        self.state = LotteryState::Completed;
+    }
+    
+    pub fn is_completed(&self) -> bool {
+        self.completed_at.is_some()
+    }
+    
+    // Helper for is_prize_pool_locked via flags (already implemented above)
+    pub fn is_prize_pool_locked(&self) -> bool {
+        self.get_is_prize_pool_locked()
+    }
+    
+    // Helper for auto_transition via flags
+    pub fn auto_transition(&self) -> bool {
+        self.get_auto_transition()
     }
 }
 
@@ -152,6 +187,7 @@ impl LotteryState {
 
 #[account]
 pub struct LotteryAccount {
+    // Core lottery data
     pub lottery_type: LotteryType,
     pub ticket_price: u64,
     pub draw_time: i64,
@@ -159,27 +195,20 @@ pub struct LotteryAccount {
     pub total_tickets: u64,
     pub winning_ticket: Option<Pubkey>,
     pub state: LotteryState,
-    pub created_by: Pubkey,
-    pub global_config: Pubkey,
-    pub auto_transition: bool,    // For automatic state transitions
-    pub last_ticket_id: u64,      // For tracking tickets
-    pub authority: Pubkey,        // Authority who can manage this lottery
+    pub authority: Pubkey,
+    pub last_ticket_id: u64,
     
-    // VRF-related fields
-    pub vrf_client: Option<Pubkey>,            // VRF client account PDA
-    pub vrf_randomness: Option<[u8; 32]>,      // Raw randomness bytes from VRF
-    pub vrf_request_account: Option<Pubkey>,   // Legacy field, can be removed or repurposed
-    pub oracle_pubkey: Option<Pubkey>,         // Oracle/VRF account for randomness
-    pub vrf_request_key: Option<Pubkey>,       // Stores the key of the VRF request account
-    pub randomness_fulfilled: bool,            // Tracks if valid randomness has been received
+    // VRF data
+    pub vrf_client: Option<Pubkey>,
+    pub vrf_request_key: Option<Pubkey>,
+    pub vrf_randomness: Option<[u8; 32]>,
+    pub randomness_fulfilled: bool,
     
-    // Prize and state tracking
-    pub is_prize_pool_locked: bool,  // To lock prize pool during drawing
-    pub target_prize_pool: u64,      // Target prize pool amount (can be 0 if no target)
-    pub is_claimed: bool,            // Whether the prize has been claimed
+    // Status flags packed into single byte
+    pub flags: u8, // bit 0: auto_transition, bit 1: is_prize_pool_locked, bit 2: is_claimed
     
-    // Additional metadata
-    pub created_at: i64,             // Timestamp when lottery was created
-    pub completed_at: Option<i64>,   // Timestamp when lottery completed/expired/cancelled
-    pub nonce: u64,                  // Nonce used for PDA derivation
+    // Metadata
+    pub created_at: i64,
+    pub completed_at: Option<i64>,
+    pub nonce: u64,
 }

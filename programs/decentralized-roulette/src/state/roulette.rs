@@ -71,6 +71,9 @@ pub struct RouletteAccount {
     pub vrf_randomness: Option<[u8; 32]>,
     pub vrf_request_key: Option<Pubkey>,
     pub randomness_fulfilled: bool,
+    // Switchboard VRF fields
+    pub switchboard_vrf: Option<Pubkey>,
+    pub vrf_request_timestamp: Option<i64>,
     
     // Financial tracking
     pub total_payouts: u64,
@@ -117,6 +120,9 @@ impl RouletteAccount {
         (1 + 32) +     // Option<[u8; 32]> vrf_randomness
         (1 + 32) +     // Option<Pubkey> vrf_request_key
         1 +            // randomness_fulfilled bool
+        // Switchboard VRF fields
+        (1 + 32) +     // Option<Pubkey> switchboard_vrf
+        (1 + 8) +      // Option<i64> vrf_request_timestamp
         
         // Financial tracking
         8 +            // total_payouts u64

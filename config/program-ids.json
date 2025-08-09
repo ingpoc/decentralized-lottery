@@ -1,0 +1,14 @@
+{
+  "devnet": {
+    "decentralized_lottery": "9G1iJ7M8fNotapwrW9o9EgB3EeobrzHPyL8kgmQGQGvz",
+    "decentralized_roulette": "HFpMuAtTLCJQoo1bxZ9XUfyoaABSjhDf7ehgjpBBgDJo"
+  },
+  "mainnet": {
+    "decentralized_lottery": "TBD",
+    "decentralized_roulette": "TBD"
+  },
+  "localnet": {
+    "decentralized_lottery": "BH1qtDhU6PtB1jrUJPf8JoNt34ELuTvVTDktDLFyq2JV",
+    "decentralized_roulette": "saLmMwuHKHDvaaPsA6GRaEjjzvmhx1VRgJGYeJpNDbr"
+  }
+}

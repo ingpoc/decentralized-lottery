@@ -2,8 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 use crate::state::{
     global_config::GlobalConfig,
-    roulette::{RouletteAccount, RouletteState, BetType},
-    bet::BetAccount
+    roulette::{RouletteAccount, RouletteState}
 };
 use crate::constants::*;
 use crate::events::RouletteSpun;
@@ -86,7 +85,7 @@ pub fn handler(ctx: Context<SettleRandomness>) -> Result<()> {
     roulette.treasury_fee_collected = treasury_fee;
     
     // The remaining amount is available for payouts
-    let available_for_payouts = total_bet_amount - treasury_fee;
+    let _available_for_payouts = total_bet_amount - treasury_fee;
     roulette.house_edge_collected = 0; // House edge is implicit in roulette odds
     
     // Transfer treasury fee if there's any to collect
@@ -143,19 +142,3 @@ pub fn handler(ctx: Context<SettleRandomness>) -> Result<()> {
     Ok(())
 }
 
-fn calculate_winning_number(randomness: &[u8; 32], roulette_type: &crate::state::roulette::RouletteType) -> u8 {
-    // Convert first 8 bytes of randomness to u64
-    let mut bytes = [0u8; 8];
-    bytes.copy_from_slice(&randomness[..8]);
-    let random_value = u64::from_le_bytes(bytes);
-    
-    // Calculate winning number based on roulette type
-    match roulette_type {
-        crate::state::roulette::RouletteType::European => {
-            (random_value % EUROPEAN_ROULETTE_NUMBERS as u64) as u8
-        },
-        crate::state::roulette::RouletteType::American => {
-            (random_value % AMERICAN_ROULETTE_NUMBERS as u64) as u8
-        },
-    }
-}

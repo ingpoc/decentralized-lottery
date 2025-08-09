@@ -7,10 +7,10 @@ set -e
 set -x
 
 echo "🧹 Cleaning previous build artifacts..."
-anchor clean
+/Users/gurusharan/.cargo/bin/anchor clean
 
 echo "🔨 Building Anchor program..."
-anchor build
+/Users/gurusharan/.cargo/bin/anchor build
 
 echo "📝 Updating IDL and TypeScript types..."
 npm run update-idl

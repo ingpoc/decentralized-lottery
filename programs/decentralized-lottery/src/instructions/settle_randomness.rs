@@ -25,7 +25,7 @@ pub struct SettleRandomness<'info> {
 
     /// Recent blockhashes sysvar for entropy
     /// CHECK: Solana sysvar for recent blockhashes  
-    #[account(address = anchor_lang::solana_program::sysvar::recent_blockhashes::id())]
+    #[account(address = anchor_lang::solana_program::sysvar::slot_hashes::id())]
     pub recent_blockhashes: AccountInfo<'info>,
 
     /// Clock sysvar for timing entropy
@@ -35,9 +35,12 @@ pub struct SettleRandomness<'info> {
     pub caller: Signer<'info>,
 }
 
-pub fn handler(ctx: Context<SettleRandomness>) -> Result<()> {
+pub fn settle_randomness_handler(ctx: Context<SettleRandomness>) -> Result<()> {
     let lottery_account = &mut ctx.accounts.lottery_account;
     let clock = &ctx.accounts.clock;
+    
+    // Store the account key before making mutable changes
+    let lottery_key = lottery_account.key();
 
     // Ensure sufficient time has passed since drawing started (prevents manipulation)
     require!(
@@ -50,7 +53,8 @@ pub fn handler(ctx: Context<SettleRandomness>) -> Result<()> {
         &ctx.accounts.recent_blockhashes,
         clock,
         &lottery_account,
-        &ctx.accounts.caller.key()
+        &ctx.accounts.caller.key(),
+        &lottery_key
     )?;
 
     // Store the randomness and mark as fulfilled
@@ -62,14 +66,14 @@ pub fn handler(ctx: Context<SettleRandomness>) -> Result<()> {
 
     // Emit events
     emit!(RandomnessSettled {
-        lottery_id: lottery_account.key(),
+        lottery_id: lottery_key,
         randomness,
         timestamp: clock.unix_timestamp,
         block_height: clock.slot,
     });
 
     emit!(crate::events::LotteryStateChanged {
-        lottery_id: lottery_account.key(),
+        lottery_id: lottery_key,
         previous_state,
         new_state: lottery_account.state.clone(),
         timestamp: clock.unix_timestamp,
@@ -87,6 +91,7 @@ fn generate_secure_randomness(
     clock: &Clock,
     lottery_account: &LotteryAccount,
     caller: &Pubkey,
+    lottery_key: &Pubkey,
 ) -> Result<[u8; 32]> {
     let mut entropy_sources = Vec::new();
 
@@ -101,7 +106,7 @@ fn generate_secure_randomness(
     entropy_sources.extend_from_slice(&clock.slot.to_le_bytes());
 
     // 3. Lottery-specific entropy (lottery ID, draw time, total tickets)
-    entropy_sources.extend_from_slice(&lottery_account.key().to_bytes());
+    entropy_sources.extend_from_slice(&lottery_key.to_bytes());
     entropy_sources.extend_from_slice(&lottery_account.draw_time.to_le_bytes());
     entropy_sources.extend_from_slice(&lottery_account.total_tickets.to_le_bytes());
     entropy_sources.extend_from_slice(&lottery_account.prize_pool.to_le_bytes());
@@ -110,9 +115,7 @@ fn generate_secure_randomness(
     entropy_sources.extend_from_slice(&caller.to_bytes());
 
     // 5. Additional fixed entropy from lottery creation
-    if let Some(created_at) = lottery_account.created_at {
-        entropy_sources.extend_from_slice(&created_at.to_le_bytes());
-    }
+    entropy_sources.extend_from_slice(&lottery_account.created_at.to_le_bytes());
 
     // Hash all entropy sources together using Keccak256 for cryptographic security
     let hash_result = keccak::hash(&entropy_sources);

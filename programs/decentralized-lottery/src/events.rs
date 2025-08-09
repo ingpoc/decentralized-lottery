@@ -169,3 +169,18 @@ pub struct LotteryCancelled {
     pub total_refunds: u64,
     pub timestamp: i64,
 }
+
+#[event]
+/// Event emitted when global configuration is updated.
+/// - Purpose: Records changes to system configuration for transparency.
+/// - Context: Triggered by the `update_config` instruction when admin modifies settings.
+pub struct ConfigUpdated {
+    pub authority: Pubkey,
+    pub old_fee_percentage: Option<u16>,
+    pub new_fee_percentage: Option<u16>,
+    pub old_admin: Option<Pubkey>,
+    pub new_admin: Option<Pubkey>,
+    pub old_paused_state: Option<bool>,
+    pub new_paused_state: Option<bool>,
+    pub timestamp: i64,
+}

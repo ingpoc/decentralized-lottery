@@ -5,12 +5,15 @@ pub mod lock_betting;
 // VRF modules for production-ready verifiable randomness
 pub mod spin_roulette;
 pub mod settle_randomness;
+pub mod vrf_client; // Legacy VRF implementation
+pub mod switchboard_vrf_simple; // Simplified Switchboard VRF integration for testing
 pub mod claim_winnings;
 pub mod cancel_roulette;
 pub mod process_game_lifecycle;
 pub mod create_next_game;
 pub mod process_automation;
-pub mod public_lifecycle_keeper;
+// pub mod public_lifecycle_keeper; // Disabled due to borrowing issues
+pub mod simple_lifecycle_keeper;
 pub mod emergency_pause;
 // pub mod thread_automation;
 // pub mod create_automation_thread;
@@ -22,12 +25,15 @@ pub use lock_betting::*;
 // VRF exports for production-ready verifiable randomness
 pub use spin_roulette::*;
 pub use settle_randomness::*;
+pub use vrf_client::*; // Legacy VRF implementation
+pub use switchboard_vrf_simple::*; // Simplified Switchboard VRF integration for testing
 pub use claim_winnings::*;
 pub use cancel_roulette::*;
 pub use process_game_lifecycle::*;
 pub use create_next_game::*;
 pub use process_automation::*;
-pub use public_lifecycle_keeper::*;
+// pub use public_lifecycle_keeper::*; // Disabled due to borrowing issues
+pub use simple_lifecycle_keeper::*;
 pub use emergency_pause::*;
 // pub use thread_automation::*;
 // pub use create_automation_thread::*;

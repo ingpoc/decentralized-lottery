@@ -1,7 +1,7 @@
 [workspace]
 members = [
-    "programs/decentralized-lottery",
-    "programs/decentralized-roulette"
+    "programs/decentralized-roulette",
+    "programs/decentralized-lottery"
 ]
 resolver = "2"
 
@@ -15,9 +15,8 @@ panic = "abort"
 [workspace.dependencies]
 anchor-lang = { version = "0.30.1", features = ["init-if-needed"] }
 anchor-spl = "0.30.1"
-solana-program = "1.18.17"
-spl-token = { version = "4.0.3", features = ["no-entrypoint"] }
-spl-associated-token-account = "2.3.0"
-spl-token-2022 = { version = "9.0.0", features = ["no-entrypoint"] }
-# switchboard-on-demand = "0.4.2"  # Temporarily disabled due to proc-macro2 compilation issues
+solana-program = "1.16.0"
+spl-token = { version = "3.5.0", features = ["no-entrypoint"], default-features = false }
+spl-associated-token-account = "1.1.2"
+# switchboard-solana = "0.30.4"  # Latest Switchboard SDK compatible with Anchor 0.30.x - temporarily disabled for testing
 # tuktuk-sdk = { git = "https://github.com/helium/tuktuk.git", branch = "main" }  # Add TukTuk SDK - disabled due to version conflict

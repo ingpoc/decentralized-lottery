@@ -46,6 +46,10 @@ pub const FIRST_COLUMN: [u8; 12] = [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34]
 pub const SECOND_COLUMN: [u8; 12] = [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35];
 pub const THIRD_COLUMN: [u8; 12] = [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36];
 
+// VRF constants
+pub const VRF_CLIENT_SEED: &[u8] = b"vrf_client";
+pub const VRF_REQUEST_DELAY: i64 = 10; // Minimum seconds between request and consume
+
 // Account size constants
 pub const DISCRIMINATOR_SIZE: usize = 8;
 pub const PUBKEY_SIZE: usize = 32;

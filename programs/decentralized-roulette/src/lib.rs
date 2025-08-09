@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("CWiMTzfG7e3Jdta6sSsm9xVZjiA1ZHdtwuYjpQyjrW4F");
+declare_id!("saLmMwuHKHDvaaPsA6GRaEjjzvmhx1VRgJGYeJpNDbr");
 
 pub mod constants;
 pub mod errors;
@@ -55,6 +55,32 @@ pub mod decentralized_roulette {
         instructions::settle_randomness::handler(ctx)
     }
 
+    // Legacy VRF functions (fallback for development/testing)
+    pub fn initialize_vrf_client(ctx: Context<InitializeVrfClient>) -> Result<()> {
+        instructions::vrf_client::initialize_vrf_client_handler(ctx)
+    }
+
+    pub fn request_randomness(ctx: Context<RequestRandomness>) -> Result<()> {
+        instructions::vrf_client::request_randomness_handler(ctx)
+    }
+
+    pub fn consume_randomness(ctx: Context<ConsumeRandomness>) -> Result<()> {
+        instructions::vrf_client::consume_randomness_handler(ctx)
+    }
+
+    // Production Switchboard VRF functions (simplified for testing)
+    pub fn initialize_switchboard_vrf(ctx: Context<InitializeSwitchboardVrf>) -> Result<()> {
+        instructions::switchboard_vrf_simple::initialize_switchboard_vrf_handler(ctx)
+    }
+
+    pub fn request_switchboard_randomness(ctx: Context<RequestSwitchboardRandomness>) -> Result<()> {
+        instructions::switchboard_vrf_simple::request_switchboard_randomness_handler(ctx)
+    }
+
+    pub fn consume_switchboard_randomness(ctx: Context<ConsumeSwitchboardRandomness>) -> Result<()> {
+        instructions::switchboard_vrf_simple::consume_switchboard_randomness_handler(ctx)
+    }
+
     pub fn claim_winnings(ctx: Context<ClaimWinnings>) -> Result<()> {
         instructions::claim_winnings::handler(ctx)
     }
@@ -72,13 +98,15 @@ pub mod decentralized_roulette {
         instructions::create_next_game::handler(ctx, nonce)
     }
 
-    pub fn process_automation(ctx: Context<ProcessAutomation>) -> Result<()> {
-        instructions::process_automation::handler(ctx)
-    }
-
     // TukTuk-based automatic lifecycle processing (crank-turner calls this)
-    pub fn public_lifecycle_keeper(ctx: Context<PublicLifecycleKeeper>) -> Result<()> {
-        instructions::public_lifecycle_keeper::handler(ctx)
+    // DISABLED: Complex borrowing issues prevent compilation
+    // pub fn public_lifecycle_keeper(ctx: Context<PublicLifecycleKeeper>) -> Result<()> {
+    //     instructions::public_lifecycle_keeper::handler(ctx)
+    // }
+
+    // Simple, working lifecycle keeper for production use
+    pub fn simple_lifecycle_keeper(ctx: Context<SimpleLifecycleKeeper>) -> Result<()> {
+        instructions::simple_lifecycle_keeper::handler(ctx)
     }
 
     // === EMERGENCY SECURITY CONTROLS ===

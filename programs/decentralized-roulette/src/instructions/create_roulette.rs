@@ -37,6 +37,9 @@ pub struct CreateRoulette<'info> {
     )]
     pub global_config: Account<'info, GlobalConfig>,
 
+    #[account(
+        constraint = usdc_mint.key() == global_config.usdc_mint @ RouletteError::InvalidTokenAccount
+    )]
     pub usdc_mint: Account<'info, Mint>,
 
     #[account(mut)]
@@ -73,14 +76,36 @@ pub fn handler(
     let clock = Clock::get()?;
     let current_time = clock.unix_timestamp;
 
+    // Enhanced validation - prevent immediate closure race conditions
+    require!(
+        game_duration >= 600,  // 10 minutes minimum (increased from 5)
+        RouletteError::GameDurationTooShort
+    );
+    require!(
+        game_duration <= 7200, // 2 hours maximum  
+        RouletteError::GameDurationTooLong
+    );
+    
+    // Validate betting duration is reasonable (at least 60% of game duration)
+    let betting_duration = (game_duration as f64 * 0.6) as i64;
+    require!(
+        betting_duration >= 180, // At least 3 minutes for betting
+        RouletteError::InvalidTimeConfiguration
+    );
+
+    // Validate bet amounts
+    require!(min_bet > 0, RouletteError::InvalidBetAmount);
+    require!(max_bet > min_bet, RouletteError::InvalidBetAmount);
+    require!(max_bet <= 1_000_000_000, RouletteError::BetExceedsMaximum); // 1000 USDC max
+
     let roulette = &mut ctx.accounts.roulette;
     roulette.roulette_type = roulette_type;
     roulette.min_bet = min_bet;
     roulette.max_bet = max_bet;
     roulette.game_duration = game_duration;
-    roulette.betting_duration = BETTING_DURATION; // 3 minutes default
+    roulette.betting_duration = betting_duration; // Use calculated betting duration
     roulette.start_time = current_time;
-    roulette.betting_end_time = current_time + BETTING_DURATION;
+    roulette.betting_end_time = current_time + betting_duration;
     roulette.spin_time = roulette.betting_end_time + 30;
     roulette.reveal_time = roulette.spin_time + 30;
     roulette.end_time = current_time + game_duration;
@@ -89,6 +114,7 @@ pub fn handler(
     roulette.authority = ctx.accounts.global_config.authority;
     roulette.global_config = ctx.accounts.global_config.key();
     roulette.roulette_usdc_account = ctx.accounts.roulette_usdc_account.key();
+    // Treasury is handled via global config
     roulette.created_at = current_time;
     roulette.nonce = nonce;
     roulette.bump = ctx.bumps.roulette;
@@ -99,13 +125,17 @@ pub fn handler(
     // Emit creation event
     emit!(RouletteCreated {
         roulette_id: roulette.key(),
-        creator: ctx.accounts.creator.key(),
+        authority: ctx.accounts.creator.key(),
         roulette_type: roulette_type,
         min_bet: min_bet,
         max_bet: max_bet,
         game_duration: game_duration,
         start_time: current_time,
         betting_end_time: roulette.betting_end_time,
+        spin_time: roulette.spin_time,
+        end_time: roulette.end_time,
+        is_autonomous: false,
+        keeper: ctx.accounts.creator.key(),
         timestamp: current_time,
     });
 

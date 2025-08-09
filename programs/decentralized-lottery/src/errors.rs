@@ -123,12 +123,16 @@ pub enum LotteryError {
     VrfClientNotSet,
     #[msg("VRF callback has not timed out yet.")]
     VrfCallbackNotTimedOut,
-    #[msg(\"Invalid fee percentage. Must be between 0 and 1000 basis points (10%).\")]
+    #[msg("Invalid fee percentage. Must be between 0 and 1000 basis points (10%).")]
     InvalidFeePercentage,
-    #[msg(\"Invalid authority for this operation.\")]
+    #[msg("Invalid authority for this operation.")]
     InvalidAuthority,
-    #[msg(\"No configuration changes provided.\")]
+    #[msg("No configuration changes provided.")]
     NoConfigChanges,
-    #[msg(\"Too early to perform this action.\")]
+    #[msg("Too early to perform this action.")]
     TooEarly,
+    #[msg("Invalid claim: ticket already claimed, not owned by signer, or not associated with lottery.")]
+    InvalidClaim,
+    #[msg("Invalid account provided.")]
+    InvalidAccount,
 }

@@ -15,12 +15,12 @@ pub struct SelectWinner<'info> {
         constraint = lottery_account.vrf_randomness.is_some() @ LotteryError::RandomnessNotAvailable,
         constraint = lottery_account.winning_ticket.is_none() @ LotteryError::WinnerAlreadySelected
     )]
-    pub lottery_account: Account<'info, LotteryAccount>,
+    pub lottery_account: Box<Account<'info, LotteryAccount>>,
     // pub admin: Signer<'info>, // Optional: If admin needs to trigger this
     pub system_program: Program<'info, System>, // Added for PDA derivation if needed by utils
 }
 
-pub fn handler(ctx: Context<SelectWinner>) -> Result<()> {
+pub fn select_winner_handler(ctx: Context<SelectWinner>) -> Result<()> {
     let lottery_account = &mut ctx.accounts.lottery_account;
     let clock = Clock::get()?;
 
@@ -52,7 +52,7 @@ pub fn handler(ctx: Context<SelectWinner>) -> Result<()> {
     )?;
 
     lottery_account.winning_ticket = Some(winning_ticket_pda);
-    lottery_account.is_prize_pool_locked = true; // Lock prize pool now that winner is selected
+    lottery_account.set_is_prize_pool_locked(true); // Lock prize pool now that winner is selected
     
     // PRODUCTION: Automatically transition to Completed state after winner selection
     let previous_state = lottery_account.state.clone();

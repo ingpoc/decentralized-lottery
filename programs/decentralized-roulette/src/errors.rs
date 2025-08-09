@@ -91,4 +91,46 @@ pub enum RouletteError {
     
     #[msg("Too many bets - potential DoS attack")]
     TooManyBets = 6029,
+    
+    #[msg("Randomness not ready")]
+    RandomnessNotReady = 6030,
+    
+    #[msg("Invalid randomness data")]
+    InvalidRandomness = 6031,
+    
+    #[msg("Clock error")]
+    ClockError = 6032,
+    
+    #[msg("Randomness already fulfilled")]
+    RandomnessAlreadyFulfilled = 6033,
+
+    #[msg("VRF request failed")]
+    VrfRequestFailed = 6034,
+
+    #[msg("VRF timeout")]
+    VrfTimeout = 6035,
+
+    #[msg("Invalid treasury account")]
+    InvalidTreasuryAccount = 6036,
+
+    #[msg("Game is stuck and needs manual intervention")]
+    GameStuck = 6037,
+
+    #[msg("Invalid time configuration")]
+    InvalidTimeConfiguration = 6038,
+
+    #[msg("Treasury has insufficient funds for potential payout")]
+    InsufficientTreasury = 6039,
+
+    #[msg("Bet too large relative to treasury capacity")]
+    BetTooLarge = 6040,
+
+    #[msg("Invalid VRF program")]
+    InvalidVrfProgram = 6041,
+
+    #[msg("VRF request not authorized")]
+    VrfRequestUnauthorized = 6042,
+    
+    #[msg("Invalid account provided")]
+    InvalidAccount = 6043,
 }

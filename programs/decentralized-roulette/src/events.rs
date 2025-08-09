@@ -4,13 +4,17 @@ use crate::state::roulette::{RouletteType, RouletteState, BetType};
 #[event]
 pub struct RouletteCreated {
     pub roulette_id: Pubkey,
-    pub creator: Pubkey,
     pub roulette_type: RouletteType,
+    pub authority: Pubkey,
     pub min_bet: u64,
     pub max_bet: u64,
     pub game_duration: i64,
     pub start_time: i64,
     pub betting_end_time: i64,
+    pub spin_time: i64,
+    pub end_time: i64,
+    pub is_autonomous: bool,
+    pub keeper: Pubkey,
     pub timestamp: i64,
 }
 
@@ -64,6 +68,14 @@ pub struct RouletteSpun {
 }
 
 #[event]
+pub struct VrfCompleted {
+    pub roulette_id: Pubkey,
+    pub winning_number: u8,
+    pub randomness_source: String,
+    pub timestamp: i64,
+}
+
+#[event]
 pub struct WinningsClaimed {
     pub roulette_id: Pubkey,
     pub bet_id: u64,
@@ -111,4 +123,27 @@ pub struct EmergencyPause {
     pub previous_state: bool,
     pub new_state: bool,
     pub timestamp: i64,
+}
+
+#[event]
+pub struct NextGameCreationTriggered {
+    pub triggered_by: Pubkey,
+    pub timestamp: i64,
+    pub reason: String,
+}
+
+#[event]
+pub struct KeeperRewarded {
+    pub keeper: Pubkey,
+    pub reward_amount: u64,
+    pub action: String,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct NextGameTriggered {
+    pub triggered_by: Pubkey,
+    pub next_nonce: u64,
+    pub timestamp: i64,
+    pub reason: String,
 }

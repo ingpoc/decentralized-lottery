@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Token, TokenAccount};
+use anchor_spl::token::{Token, TokenAccount, Mint};
 use crate::state::GlobalConfig;
 use crate::errors::LotteryError;
 use crate::events::ConfigUpdated;
@@ -18,31 +18,15 @@ pub struct UpdateConfig<'info> {
     pub admin: Signer<'info>,
     
     /// New USDC mint (optional update)
-    #[account(
-        constraint = new_usdc_mint.mint.is_initialized @ LotteryError::InvalidTokenAccount
-    )]
-    pub new_usdc_mint: Option<Account<'info, TokenAccount>>,
+    pub new_usdc_mint: Option<Account<'info, Mint>>,
     
     /// New treasury token account (optional update)  
-    #[account(
-        constraint = new_treasury_token_account.owner == global_config.admin @ LotteryError::InvalidTokenAccount
-    )]
     pub new_treasury_token_account: Option<Account<'info, TokenAccount>>,
     
     pub token_program: Program<'info, Token>,
 }
 
-#[event]
-pub struct ConfigUpdated {
-    pub admin: Pubkey,
-    pub usdc_mint_updated: bool,
-    pub treasury_updated: bool,
-    pub fee_percentage_updated: bool,
-    pub new_fee_percentage: Option<u16>,
-    pub timestamp: i64,
-}
-
-pub fn handler(
+pub fn update_config_handler(
     ctx: Context<UpdateConfig>, 
     new_fee_percentage: Option<u16>,
     new_admin: Option<Pubkey>,
@@ -51,6 +35,10 @@ pub fn handler(
     let global_config = &mut ctx.accounts.global_config;
     let clock = Clock::get()?;
     
+    let old_fee_percentage = Some(global_config.treasury_fee_percentage);
+    let old_admin = Some(global_config.admin);
+    let old_paused_state = Some(global_config.is_paused);
+    
     let mut usdc_mint_updated = false;
     let mut treasury_updated = false;
     let mut fee_percentage_updated = false;
@@ -58,12 +46,12 @@ pub fn handler(
     // Update USDC mint if provided
     if let Some(new_mint) = &ctx.accounts.new_usdc_mint {
         require!(
-            new_mint.mint != global_config.usdc_mint,
+            new_mint.key() != global_config.usdc_mint,
             LotteryError::InvalidTokenAccount
         );
-        global_config.usdc_mint = new_mint.mint;
+        global_config.usdc_mint = new_mint.key();
         usdc_mint_updated = true;
-        msg!("USDC mint updated to: {}", new_mint.mint);
+        msg!("USDC mint updated to: {}", new_mint.key());
     }
     
     // Update treasury token account if provided
@@ -121,11 +109,13 @@ pub fn handler(
     
     // Emit configuration update event
     emit!(ConfigUpdated {
-        admin: ctx.accounts.admin.key(),
-        usdc_mint_updated,
-        treasury_updated,
-        fee_percentage_updated,
+        authority: ctx.accounts.admin.key(),
+        old_fee_percentage,
         new_fee_percentage,
+        old_admin,
+        new_admin,
+        old_paused_state,
+        new_paused_state: is_paused,
         timestamp: clock.unix_timestamp,
     });
     

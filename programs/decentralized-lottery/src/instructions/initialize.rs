@@ -21,7 +21,7 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handler(ctx: Context<Initialize>) -> Result<()> {
+pub fn initialize_handler(ctx: Context<Initialize>) -> Result<()> {
     let global_config = &mut ctx.accounts.global_config;
     global_config.admin = ctx.accounts.admin.key();
     global_config.treasury_fee_percentage = 250; // Default 2.5%
