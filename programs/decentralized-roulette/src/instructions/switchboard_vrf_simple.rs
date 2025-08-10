@@ -77,6 +77,11 @@ pub struct ConsumeSwitchboardRandomness<'info> {
     pub caller: Signer<'info>,
 }
 
+/// Generic handler alias for compatibility
+pub use initialize_switchboard_vrf_handler as handler;
+/// Struct alias for mod.rs compatibility
+pub use InitializeSwitchboardVrf as SimpleSwitchboardVrf;
+
 /// Initialize Switchboard VRF for a roulette game
 /// Placeholder implementation for compilation testing
 pub fn initialize_switchboard_vrf_handler(ctx: Context<InitializeSwitchboardVrf>) -> Result<()> {

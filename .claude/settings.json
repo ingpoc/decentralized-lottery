@@ -1,8 +1,8 @@
 {
   "hooks": {
-    "pre-edit": ".claude/hooks/version-guard.sh",
-    "pre-bash": ".claude/hooks/version-guard.sh",
-    "session-start": ".claude/hooks/version-guard.sh"
+    "pre-edit": ".claude/hooks/master-validator.sh",
+    "pre-bash": ".claude/hooks/master-validator.sh", 
+    "session-start": ".claude/hooks/master-validator.sh"
   },
   "description": "Claude Code settings for decentralized lottery project",
   "project": {

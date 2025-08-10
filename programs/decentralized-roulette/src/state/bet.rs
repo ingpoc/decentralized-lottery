@@ -34,18 +34,21 @@ impl BetAccount {
         (1 + 8) +      // Option<i64> claimed_at
         1;             // bump u8
     
-    pub fn calculate_payout(&self) -> u64 {
+    pub fn calculate_payout(&self) -> Result<u64> {
         if self.is_winner {
-            self.bet_amount * (self.payout_multiplier as u64 + 1)
+            self.bet_amount
+                .checked_mul(self.payout_multiplier as u64 + 1)
+                .ok_or(crate::errors::RouletteError::PayoutOverflow.into())
         } else {
-            0
+            Ok(0)
         }
     }
     
-    pub fn mark_as_winner(&mut self, winning_number: u8) {
+    pub fn mark_as_winner(&mut self, winning_number: u8) -> Result<()> {
         self.is_winner = self.bet_numbers.contains(&winning_number);
         if self.is_winner {
-            self.payout_amount = self.calculate_payout();
+            self.payout_amount = self.calculate_payout()?;
         }
+        Ok(())
     }
 }

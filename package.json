@@ -9,7 +9,7 @@
     "generate-idl": "ts-node scripts/generate-idl-fallback.ts",
     "build": "export PATH=\"/Users/gurusharan/.cargo/bin:/Users/gurusharan/.local/share/solana/install/active_release/bin:$PATH\" && anchor build && npm run sync-idl",
     "build:safe": "npm run sync-idl",
-    "build:full": "./scripts/build.sh && npm run sync-idl",
+    "build:full": "ts-node scripts/build-and-sync.ts",
     "deploy": "export PATH=\"/Users/gurusharan/.cargo/bin:/Users/gurusharan/.local/share/solana/install/active_release/bin:$PATH\" && anchor deploy && npm run sync-idl",
     "deploy:devnet": "export PATH=\"/Users/gurusharan/.cargo/bin:/Users/gurusharan/.local/share/solana/install/active_release/bin:$PATH\" && anchor deploy --provider.cluster devnet && npm run sync-idl",
     "deploy:mainnet": "export PATH=\"/Users/gurusharan/.cargo/bin:/Users/gurusharan/.local/share/solana/install/active_release/bin:$PATH\" && anchor deploy --provider.cluster mainnet && npm run sync-idl",

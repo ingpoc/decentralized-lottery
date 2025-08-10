@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use crate::errors::RouletteError;
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum RouletteType {
@@ -136,7 +137,7 @@ impl RouletteAccount {
         8 +            // nonce u64
         1;             // bump u8
     
-    pub fn calculate_payout(&self, bet_type: &BetType, bet_amount: u64) -> u64 {
+    pub fn calculate_payout(&self, bet_type: &BetType, bet_amount: u64) -> Result<u64> {
         let multiplier = match bet_type {
             BetType::Straight => 35,        // 35:1
             BetType::Split => 17,           // 17:1
@@ -150,7 +151,11 @@ impl RouletteAccount {
             BetType::ThirdTwelve | BetType::FirstColumn |
             BetType::SecondColumn | BetType::ThirdColumn => 2, // 2:1
         };
-        bet_amount * (multiplier + 1) // Include original bet
+        
+        // Safe arithmetic with overflow protection
+        bet_amount
+            .checked_mul(multiplier + 1)
+            .ok_or(RouletteError::PayoutOverflow.into())
     }
     
     pub fn is_betting_open(&self, current_time: i64) -> bool {

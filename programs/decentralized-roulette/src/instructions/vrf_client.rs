@@ -118,6 +118,9 @@ impl VrfClientAccount {
         1; // bump
 }
 
+/// Generic handler alias for compatibility
+pub use initialize_vrf_client_handler as handler;
+
 /// Initialize VRF client for a roulette game
 pub fn initialize_vrf_client_handler(ctx: Context<InitializeVrfClient>) -> Result<()> {
     let vrf_client = &mut ctx.accounts.vrf_client;

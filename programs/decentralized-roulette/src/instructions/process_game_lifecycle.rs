@@ -90,9 +90,12 @@ pub fn handler(ctx: Context<ProcessGameLifecycle>) -> Result<()> {
                     roulette.is_settled = true;
                     roulette.completed_at = Some(current_time);
                     
-                    // Calculate fees
+                    // Calculate fees with overflow protection
                     let total_bet_amount = roulette.total_bet_amount;
-                    let treasury_fee = (total_bet_amount * 200u64) / 10000; // 2% treasury fee
+                    let treasury_fee = total_bet_amount
+                        .checked_mul(200u64)
+                        .and_then(|result| result.checked_div(10000))
+                        .ok_or(RouletteError::TreasuryFeeOverflow)?; // 2% treasury fee
                     roulette.treasury_fee_collected = treasury_fee;
                     
                     // Emit spin started event
@@ -160,7 +163,10 @@ pub fn handler(ctx: Context<ProcessGameLifecycle>) -> Result<()> {
                 
                 // Calculate fees
                 let total_bet_amount = roulette.total_bet_amount;
-                let treasury_fee = (total_bet_amount * 200u64) / 10000; // 2% treasury fee
+                let treasury_fee = total_bet_amount
+                    .checked_mul(200u64)
+                    .and_then(|result| result.checked_div(10000))
+                    .ok_or(RouletteError::TreasuryFeeOverflow)?; // 2% treasury fee
                 roulette.treasury_fee_collected = treasury_fee;
                 
                 // Emit spin started event
@@ -212,7 +218,10 @@ pub fn handler(ctx: Context<ProcessGameLifecycle>) -> Result<()> {
             
             // Calculate fees
             let total_bet_amount = roulette.total_bet_amount;
-            let treasury_fee = (total_bet_amount * 200u64) / 10000; // 2% treasury fee
+            let treasury_fee = total_bet_amount
+                .checked_mul(200u64)
+                .and_then(|result| result.checked_div(10000))
+                .ok_or(RouletteError::TreasuryFeeOverflow)?; // 2% treasury fee
             roulette.treasury_fee_collected = treasury_fee;
             
             // Emit game completed event

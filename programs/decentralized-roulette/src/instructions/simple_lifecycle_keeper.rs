@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, TokenAccount};
 use crate::state::{
     global_config::GlobalConfig,
-    roulette::{RouletteAccount, RouletteState, RouletteType}
+    roulette::{RouletteAccount, RouletteState}
 };
 use crate::constants::*;
 use crate::events::{BettingLocked, RouletteExpired, RouletteSpun};
@@ -68,7 +68,10 @@ pub fn handler(ctx: Context<SimpleLifecycleKeeper>) -> Result<()> {
                 roulette.completed_at = Some(current_time);
                 
                 // Transfer treasury fee
-                let treasury_fee = (roulette.total_bet_amount * global_config.treasury_fee_percentage as u64) / 10000;
+                let treasury_fee = roulette.total_bet_amount
+                    .checked_mul(global_config.treasury_fee_percentage as u64)
+                    .and_then(|result| result.checked_div(10000))
+                    .ok_or(RouletteError::TreasuryFeeOverflow)?;
                 if treasury_fee > 0 {
                     // Log treasury fee transfer - actual transfer would be implemented here
                     msg!("Treasury fee calculated: {} micro-USDC", treasury_fee);
@@ -123,21 +126,31 @@ pub fn handler(ctx: Context<SimpleLifecycleKeeper>) -> Result<()> {
     Ok(())
 }
 
-fn generate_simple_winning_number(clock: &Clock, roulette: &RouletteAccount) -> Result<u8> {
-    // Simple deterministic but unpredictable number generation
-    let mut seed_data = Vec::new();
-    seed_data.extend_from_slice(&clock.unix_timestamp.to_le_bytes());
-    seed_data.extend_from_slice(&clock.slot.to_le_bytes());  
-    seed_data.extend_from_slice(&roulette.total_bets.to_le_bytes());
-    seed_data.extend_from_slice(&roulette.total_bet_amount.to_le_bytes());
-    seed_data.extend_from_slice(&roulette.created_at.to_le_bytes());
-    
-    let hash = solana_program::keccak::hash(&seed_data);
-    let random_bytes = hash.to_bytes();
-    let random_u32 = u32::from_le_bytes([random_bytes[0], random_bytes[1], random_bytes[2], random_bytes[3]]);
-    
-    match roulette.roulette_type {
-        RouletteType::European => Ok((random_u32 % 37) as u8), // 0-36
-        RouletteType::American => Ok((random_u32 % 38) as u8),  // 0-37 (includes 00 as 37)
+fn generate_simple_winning_number(_clock: &Clock, _roulette: &RouletteAccount) -> Result<u8> {
+    // WARNING: THIS IS FOR DEVELOPMENT/TESTING ONLY
+    // Do not use in production - use proper VRF instead
+    #[cfg(feature = "development")]
+    {
+        // Simple deterministic but unpredictable number generation for testing
+        let mut seed_data = Vec::new();
+        seed_data.extend_from_slice(&clock.unix_timestamp.to_le_bytes());
+        seed_data.extend_from_slice(&clock.slot.to_le_bytes());  
+        seed_data.extend_from_slice(&roulette.total_bets.to_le_bytes());
+        seed_data.extend_from_slice(&roulette.total_bet_amount.to_le_bytes());
+        seed_data.extend_from_slice(&roulette.created_at.to_le_bytes());
+        
+        let hash = solana_program::keccak::hash(&seed_data);
+        let random_bytes = hash.to_bytes();
+        let random_u32 = u32::from_le_bytes([random_bytes[0], random_bytes[1], random_bytes[2], random_bytes[3]]);
+        
+        match roulette.roulette_type {
+            RouletteType::European => Ok((random_u32 % 37) as u8), // 0-36
+            RouletteType::American => Ok((random_u32 % 38) as u8),  // 0-37 (includes 00 as 37)
+        }
+    }
+    #[cfg(not(feature = "development"))]
+    {
+        // In production, this should never be called - use proper VRF
+        return Err(RouletteError::InvalidRandomness.into());
     }
 }

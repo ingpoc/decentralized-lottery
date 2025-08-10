@@ -76,16 +76,21 @@ pub fn handler(ctx: Context<SettleRandomness>) -> Result<()> {
     
     let winning_number = roulette.winning_number.unwrap();
     
-    // Calculate payouts and fees
+    // Calculate payouts and fees with overflow protection
     let total_bet_amount = roulette.total_bet_amount;
-    let treasury_fee = (total_bet_amount * global_config.treasury_fee_percentage as u64) / 10000;
+    let treasury_fee = total_bet_amount
+        .checked_mul(global_config.treasury_fee_percentage as u64)
+        .and_then(|result| result.checked_div(10000))
+        .ok_or(RouletteError::TreasuryFeeOverflow)?;
     
     // For roulette, house edge is built into the payout odds
     // Treasury fee is taken from total bets before payouts
     roulette.treasury_fee_collected = treasury_fee;
     
     // The remaining amount is available for payouts
-    let _available_for_payouts = total_bet_amount - treasury_fee;
+    let _available_for_payouts = total_bet_amount
+        .checked_sub(treasury_fee)
+        .ok_or(RouletteError::ArithmeticOverflow)?;
     roulette.house_edge_collected = 0; // House edge is implicit in roulette odds
     
     // Transfer treasury fee if there's any to collect

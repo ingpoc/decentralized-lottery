@@ -133,4 +133,10 @@ pub enum RouletteError {
     
     #[msg("Invalid account provided")]
     InvalidAccount = 6043,
+    
+    #[msg("Payout calculation overflow")]
+    PayoutOverflow = 6044,
+    
+    #[msg("Treasury fee calculation overflow")]
+    TreasuryFeeOverflow = 6045,
 }

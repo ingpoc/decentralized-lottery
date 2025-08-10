@@ -55,31 +55,31 @@ pub mod decentralized_roulette {
         instructions::settle_randomness::handler(ctx)
     }
 
-    // Legacy VRF functions (fallback for development/testing)
-    pub fn initialize_vrf_client(ctx: Context<InitializeVrfClient>) -> Result<()> {
-        instructions::vrf_client::initialize_vrf_client_handler(ctx)
-    }
+    // Legacy VRF functions (fallback for development/testing) - TEMPORARILY DISABLED
+    // pub fn initialize_vrf_client(ctx: Context<InitializeVrfClient>) -> Result<()> {
+    //     instructions::vrf_client::initialize_vrf_client_handler(ctx)
+    // }
 
-    pub fn request_randomness(ctx: Context<RequestRandomness>) -> Result<()> {
-        instructions::vrf_client::request_randomness_handler(ctx)
-    }
+    // pub fn request_randomness(ctx: Context<RequestRandomness>) -> Result<()> {
+    //     instructions::vrf_client::request_randomness_handler(ctx)
+    // }
 
-    pub fn consume_randomness(ctx: Context<ConsumeRandomness>) -> Result<()> {
-        instructions::vrf_client::consume_randomness_handler(ctx)
-    }
+    // pub fn consume_randomness(ctx: Context<ConsumeRandomness>) -> Result<()> {
+    //     instructions::vrf_client::consume_randomness_handler(ctx)
+    // }
 
-    // Production Switchboard VRF functions (simplified for testing)
-    pub fn initialize_switchboard_vrf(ctx: Context<InitializeSwitchboardVrf>) -> Result<()> {
-        instructions::switchboard_vrf_simple::initialize_switchboard_vrf_handler(ctx)
-    }
+    // Production Switchboard VRF functions (simplified for testing) - TEMPORARILY DISABLED
+    // pub fn initialize_switchboard_vrf(ctx: Context<InitializeSwitchboardVrf>) -> Result<()> {
+    //     instructions::switchboard_vrf_simple::initialize_switchboard_vrf_handler(ctx)
+    // }
 
-    pub fn request_switchboard_randomness(ctx: Context<RequestSwitchboardRandomness>) -> Result<()> {
-        instructions::switchboard_vrf_simple::request_switchboard_randomness_handler(ctx)
-    }
+    // pub fn request_switchboard_randomness(ctx: Context<RequestSwitchboardRandomness>) -> Result<()> {
+    //     instructions::switchboard_vrf_simple::request_switchboard_randomness_handler(ctx)
+    // }
 
-    pub fn consume_switchboard_randomness(ctx: Context<ConsumeSwitchboardRandomness>) -> Result<()> {
-        instructions::switchboard_vrf_simple::consume_switchboard_randomness_handler(ctx)
-    }
+    // pub fn consume_switchboard_randomness(ctx: Context<ConsumeSwitchboardRandomness>) -> Result<()> {
+    //     instructions::switchboard_vrf_simple::consume_switchboard_randomness_handler(ctx)
+    // }
 
     pub fn claim_winnings(ctx: Context<ClaimWinnings>) -> Result<()> {
         instructions::claim_winnings::handler(ctx)

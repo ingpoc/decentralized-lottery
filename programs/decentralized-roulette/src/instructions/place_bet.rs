@@ -2,6 +2,26 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, TokenAccount, Transfer as SplTransfer};
 use crate::state::{bet::BetAccount, roulette::{RouletteAccount, RouletteState, BetType}};
 use crate::constants::*;
+
+fn calculate_max_payout(bet_type: &BetType, bet_amount: u64) -> Result<u64> {
+    let max_multiplier = match bet_type {
+        BetType::Straight => 35,        // 35:1 - highest payout
+        BetType::Split => 17,           // 17:1
+        BetType::Street => 11,          // 11:1
+        BetType::Corner => 8,           // 8:1
+        BetType::SixLine => 5,          // 5:1
+        BetType::Red | BetType::Black | 
+        BetType::Even | BetType::Odd | 
+        BetType::Low | BetType::High => 1, // 1:1
+        BetType::FirstTwelve | BetType::SecondTwelve | 
+        BetType::ThirdTwelve | BetType::FirstColumn |
+        BetType::SecondColumn | BetType::ThirdColumn => 2, // 2:1
+    };
+    
+    bet_amount
+        .checked_mul(max_multiplier + 1)
+        .ok_or(RouletteError::PayoutOverflow.into())
+}
 use crate::errors::RouletteError;
 use crate::events::BetPlaced;
 
@@ -48,16 +68,33 @@ fn validate_bet_context(
     let (expected_config_key, _) = Pubkey::find_program_address(config_seeds, ctx.program_id);
     require!(expected_config_key == ctx.accounts.global_config.key(), RouletteError::InvalidAccount);
 
+    // Enhanced input validation with security checks
     require!(roulette.state == RouletteState::Open, RouletteError::InvalidGameState);
     require!(clock.unix_timestamp < roulette.betting_end_time, RouletteError::BettingClosed);
-    require!(
-        bet_amount >= roulette.min_bet && bet_amount <= roulette.max_bet,
-        RouletteError::InvalidBetAmount
-    );
+    
+    // Validate bet amount bounds with overflow protection
+    require!(bet_amount > 0, RouletteError::InvalidBetAmount);
+    require!(bet_amount >= roulette.min_bet, RouletteError::BetBelowMinimum);
+    require!(bet_amount <= roulette.max_bet, RouletteError::BetExceedsMaximum);
+    
+    // Check capacity limits
     require!(roulette.total_players < DEFAULT_MAX_PLAYERS_PER_GAME, RouletteError::GameFull);
-    validate_bet_numbers(bet_type, bet_numbers)?;
-    require!(roulette.total_bet_amount.checked_add(bet_amount).is_some(), RouletteError::ArithmeticOverflow);
     require!(roulette.total_bets < 10000, RouletteError::TooManyBets);
+    
+    // Validate bet type and numbers
+    validate_bet_numbers(bet_type, bet_numbers)?;
+    
+    // Check for arithmetic overflow in total bet amount
+    let new_total = roulette.total_bet_amount
+        .checked_add(bet_amount)
+        .ok_or(RouletteError::ArithmeticOverflow)?;
+    
+    // Validate treasury can handle potential maximum payout
+    let max_possible_payout = calculate_max_payout(bet_type, bet_amount)?;
+    require!(
+        new_total >= max_possible_payout,
+        RouletteError::InsufficientTreasury
+    );
     
     Ok((roulette, clock.unix_timestamp))
 }

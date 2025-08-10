@@ -4,6 +4,7 @@ anchor_version = "0.30.1"
 [features]
 resolution = true
 skip-lint = false
+seeds = false
 
 [programs.devnet]
 decentralized_lottery = "9G1iJ7M8fNotapwrW9o9EgB3EeobrzHPyL8kgmQGQGvz"
@@ -12,7 +13,6 @@ decentralized_roulette = "HFpMuAtTLCJQoo1bxZ9XUfyoaABSjhDf7ehgjpBBgDJo"
 [programs.localnet]
 decentralized_lottery = "BH1qtDhU6PtB1jrUJPf8JoNt34ELuTvVTDktDLFyq2JV"
 decentralized_roulette = "saLmMwuHKHDvaaPsA6GRaEjjzvmhx1VRgJGYeJpNDbr"
-
 [registry]
 url = "https://api.apr.dev"
 
