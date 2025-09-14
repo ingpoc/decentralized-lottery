@@ -1,0 +1,16 @@
+[2025-09-13T07:25:27.413345000Z ERROR cargo_build_sbf] Failed to obtain package metadata: `cargo metadata` exited with an error:     Updating crates.io index
+    error: failed to select a version for `solana-program`.
+        ... required by package `solana-zk-sdk v2.1.0`
+        ... which satisfies dependency `solana-zk-sdk = "^2.1.0"` of package `spl-token-2022 v6.0.0`
+        ... which satisfies dependency `spl-token-2022 = "^6"` of package `anchor-spl v0.31.1`
+        ... which satisfies dependency `anchor-spl = "^0.31.1"` of package `decentralized-lottery v0.1.0 (/Users/gurusharan/Documents/remote-claude/cursor-project/decentralized-lottery/programs/decentralized-lottery)`
+    versions that meet the requirements `=2.1.0` are: 2.1.0
+    
+    all possible versions conflict with previously selected packages.
+    
+      previously selected package `solana-program v2.3.0`
+        ... which satisfies dependency `solana-program = "^2"` of package `anchor-lang v0.31.1`
+        ... which satisfies dependency `anchor-lang = "^0.31.1"` of package `decentralized-lottery v0.1.0 (/Users/gurusharan/Documents/remote-claude/cursor-project/decentralized-lottery/programs/decentralized-lottery)`
+    
+    failed to select a version for `solana-program` which could resolve this conflict
+    

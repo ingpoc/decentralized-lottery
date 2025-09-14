@@ -2,11 +2,11 @@ pub mod initialize;
 pub mod create_roulette;
 pub mod place_bet;
 pub mod lock_betting;
-// VRF modules for production-ready verifiable randomness
-pub mod spin_roulette;
-pub mod settle_randomness;
-pub mod vrf_client; // Legacy VRF implementation
-pub mod switchboard_vrf_simple; // Simplified Switchboard VRF integration for testing
+// VRF modules for production-ready verifiable randomness - temporarily disabled
+// pub mod spin_roulette;
+// pub mod settle_randomness;
+// pub mod vrf_client; // Legacy VRF implementation - temporarily disabled
+// pub mod switchboard_vrf_simple; // Simplified Switchboard VRF integration - temporarily disabled
 pub mod claim_winnings;
 pub mod cancel_roulette;
 pub mod process_game_lifecycle;
@@ -23,11 +23,11 @@ pub use initialize::{Initialize, handler as initialize_handler};
 pub use create_roulette::{CreateRoulette, handler as create_roulette_handler};
 pub use place_bet::{PlaceBet, handler as place_bet_handler};
 pub use lock_betting::{LockBetting, handler as lock_betting_handler};
-// VRF exports for production-ready verifiable randomness
-pub use spin_roulette::{SpinRoulette, handler as spin_roulette_handler};
-pub use settle_randomness::{SettleRandomness, handler as settle_randomness_handler};
-pub use vrf_client::{InitializeVrfClient, RequestRandomness, ConsumeRandomness, handler as initialize_vrf_client_handler}; // Legacy VRF implementation
-pub use switchboard_vrf_simple::{SimpleSwitchboardVrf, InitializeSwitchboardVrf, RequestSwitchboardRandomness, ConsumeSwitchboardRandomness, handler as simple_switchboard_vrf_handler}; // Simplified Switchboard VRF integration for testing
+// VRF exports for production-ready verifiable randomness - temporarily disabled
+// pub use spin_roulette::{SpinRoulette, handler as spin_roulette_handler};
+// pub use settle_randomness::{SettleRandomness, handler as settle_randomness_handler};
+// pub use vrf_client::{InitializeVrfClient, RequestRandomness, ConsumeRandomness, handler as initialize_vrf_client_handler}; // Legacy VRF implementation - temporarily disabled
+// pub use switchboard_vrf_simple::{SimpleSwitchboardVrf, InitializeSwitchboardVrf, RequestSwitchboardRandomness, ConsumeSwitchboardRandomness, handler as simple_switchboard_vrf_handler}; // Simplified Switchboard VRF integration - temporarily disabled
 pub use claim_winnings::{ClaimWinnings, handler as claim_winnings_handler};
 pub use cancel_roulette::{CancelRoulette, handler as cancel_roulette_handler};
 pub use process_game_lifecycle::{ProcessGameLifecycle, handler as process_game_lifecycle_handler};

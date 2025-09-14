@@ -4,12 +4,10 @@
     "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
     "update-config": "ts-node scripts/update-config.ts",
-    "update-idl": "ts-node scripts/update-idl.ts",
     "sync-idl": "ts-node scripts/sync-idl.ts",
-    "generate-idl": "ts-node scripts/generate-idl-fallback.ts",
     "build": "export PATH=\"/Users/gurusharan/.cargo/bin:/Users/gurusharan/.local/share/solana/install/active_release/bin:$PATH\" && anchor build && npm run sync-idl",
-    "build:safe": "npm run sync-idl",
-    "build:full": "ts-node scripts/build-and-sync.ts",
+    "build:full": "ts-node scripts/build-and-test.ts",
+    "build:reliable": "ts-node scripts/reliable-build-sync.ts",
     "deploy": "export PATH=\"/Users/gurusharan/.cargo/bin:/Users/gurusharan/.local/share/solana/install/active_release/bin:$PATH\" && anchor deploy && npm run sync-idl",
     "deploy:devnet": "export PATH=\"/Users/gurusharan/.cargo/bin:/Users/gurusharan/.local/share/solana/install/active_release/bin:$PATH\" && anchor deploy --provider.cluster devnet && npm run sync-idl",
     "deploy:mainnet": "export PATH=\"/Users/gurusharan/.cargo/bin:/Users/gurusharan/.local/share/solana/install/active_release/bin:$PATH\" && anchor deploy --provider.cluster mainnet && npm run sync-idl",
@@ -24,10 +22,11 @@
     "deploy:test": "node deploy-and-test.js",
     "deploy:local": "ts-node scripts/deploy-local.ts",
     "setup:simple": "ts-node scripts/setup-local-simple.ts",
-    "update-ids": "ts-node scripts/update-program-ids.ts"
+    "update-ids": "ts-node scripts/update-program-ids.ts",
+    "validate-idl-compatibility": "ts-node scripts/validate-idl-compatibility.ts"
   },
   "dependencies": {
-    "@coral-xyz/anchor": "^0.30.1",
+    "@coral-xyz/anchor": "^0.31.1",
     "@solana/spl-token": "^0.4.12",
     "bs58": "^6.0.0"
   },

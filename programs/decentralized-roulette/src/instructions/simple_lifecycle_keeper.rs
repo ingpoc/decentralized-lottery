@@ -139,7 +139,7 @@ fn generate_simple_winning_number(_clock: &Clock, _roulette: &RouletteAccount) -
         seed_data.extend_from_slice(&roulette.total_bet_amount.to_le_bytes());
         seed_data.extend_from_slice(&roulette.created_at.to_le_bytes());
         
-        let hash = solana_program::keccak::hash(&seed_data);
+        let hash = anchor_lang::solana_program::keccak::hash(&seed_data);
         let random_bytes = hash.to_bytes();
         let random_u32 = u32::from_le_bytes([random_bytes[0], random_bytes[1], random_bytes[2], random_bytes[3]]);
         

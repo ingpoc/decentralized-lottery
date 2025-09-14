@@ -19,18 +19,22 @@ pub struct BuyTicket<'info> {
     )]
     pub ticket_account: Box<Account<'info, TicketAccount>>,
 
+    /// CHECK: Global config account is validated in instruction logic
     #[account()]
     pub global_config: AccountInfo<'info>,
 
     #[account(mut)]
     pub user: Signer<'info>,
 
+    /// CHECK: User token account is validated in instruction logic
     #[account(mut)]
     pub user_token_account: AccountInfo<'info>,
 
+    /// CHECK: Lottery token account is validated in instruction logic
     #[account(mut)]
     pub lottery_token_account: AccountInfo<'info>,
 
+    /// CHECK: USDC mint account is validated in instruction logic
     pub usdc_mint: AccountInfo<'info>,
 
     pub token_program: Program<'info, Token>,

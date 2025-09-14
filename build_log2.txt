@@ -1,0 +1,43 @@
+warning: use of deprecated method `anchor_lang::prelude::AccountInfo::<'a>::realloc`: Use AccountInfo::resize() instead
+  --> programs/decentralized-lottery/src/lib.rs:14:1
+   |
+14 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+   = note: this warning originates in the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: `decentralized-lottery` (lib) generated 1 warning
+    Finished `release` profile [optimized] target(s) in 0.09s
+   Compiling anchor-spl v0.31.1
+error[E0433]: failed to resolve: could not find `token_interface` in the crate root
+  --> /Users/gurusharan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/anchor-spl-0.31.1/src/idl_build.rs:31:24
+   |
+31 | impl_idl_build!(crate::token_interface::Mint);
+   |                        ^^^^^^^^^^^^^^^ could not find `token_interface` in the crate root
+   |
+note: found an item that was configured out
+  --> /Users/gurusharan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/anchor-spl-0.31.1/src/lib.rs:21:9
+   |
+20 | #[cfg(feature = "token_2022")]
+   |       ---------------------- the item is gated behind the `token_2022` feature
+21 | pub mod token_interface;
+   |         ^^^^^^^^^^^^^^^
+
+error[E0433]: failed to resolve: could not find `token_interface` in the crate root
+  --> /Users/gurusharan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/anchor-spl-0.31.1/src/idl_build.rs:32:24
+   |
+32 | impl_idl_build!(crate::token_interface::TokenAccount);
+   |                        ^^^^^^^^^^^^^^^ could not find `token_interface` in the crate root
+   |
+note: found an item that was configured out
+  --> /Users/gurusharan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/anchor-spl-0.31.1/src/lib.rs:21:9
+   |
+20 | #[cfg(feature = "token_2022")]
+   |       ---------------------- the item is gated behind the `token_2022` feature
+21 | pub mod token_interface;
+   |         ^^^^^^^^^^^^^^^
+
+For more information about this error, try `rustc --explain E0433`.
+error: could not compile `anchor-spl` (lib) due to 2 previous errors
+Error: Building IDL failed. Run `ANCHOR_LOG=true anchor idl build` to see the logs.

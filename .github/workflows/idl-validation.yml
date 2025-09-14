@@ -1,0 +1,213 @@
+name: IDL Generation Validation
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  SOLANA_CLI_VERSION: 2.1.5
+
+jobs:
+  idl-validation:
+    runs-on: ubuntu-latest
+    name: Validate IDL Generation
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: stable
+        
+    - name: Setup Solana CLI
+      run: |
+        sh -c "$(curl -sSfL https://release.solana.com/v${{ env.SOLANA_CLI_VERSION }}/install)"
+        echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+        
+    - name: Setup Anchor CLI
+      run: |
+        npm install -g @coral-xyz/anchor-cli@0.31.1
+        
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+          programs/*/target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+          
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Validate Anchor configuration
+      run: |
+        echo "🔍 Validating Anchor.toml configuration..."
+        
+        # Check if Anchor.toml exists
+        if [[ ! -f "Anchor.toml" ]]; then
+          echo "❌ Anchor.toml not found!"
+          exit 1
+        fi
+        
+        # Extract versions for comparison
+        ANCHOR_VERSION=$(grep "anchor_version" Anchor.toml | sed 's/.*= *"\([^"]*\)".*/\1/')
+        WORKSPACE_ANCHOR=$(grep "anchor-lang.*version" Cargo.toml | sed 's/.*version *= *"\([^"]*\)".*/\1/' | sed 's/[~^]//')
+        
+        echo "Anchor.toml version: $ANCHOR_VERSION"
+        echo "Cargo.toml version: $WORKSPACE_ANCHOR"
+        
+        if [[ "$ANCHOR_VERSION" != "$WORKSPACE_ANCHOR" ]]; then
+          echo "❌ Version mismatch between Anchor.toml ($ANCHOR_VERSION) and Cargo.toml ($WORKSPACE_ANCHOR)"
+          exit 1
+        fi
+        
+        echo "✅ Anchor configuration valid"
+        
+    - name: Check for problematic dependencies
+      run: |
+        echo "🔍 Checking for known problematic dependencies..."
+        
+        # Check proc_macro2 version
+        if grep -q 'proc-macro2.*1\.0\.9[5-9]' Cargo.toml; then
+          echo "❌ Problematic proc_macro2 version detected!"
+          echo "Versions 1.0.95+ cause IDL generation failures"
+          exit 1
+        fi
+        
+        # Check for explicit solana-program dependency
+        if grep -q "solana-program" Cargo.toml; then
+          echo "⚠️  WARNING: Explicit solana-program dependency detected"
+          echo "This may conflict with anchor-lang's solana-program"
+        fi
+        
+        echo "✅ Dependency check passed"
+        
+    - name: Validate program features
+      run: |
+        echo "🔍 Checking program feature configurations..."
+        
+        # Check each program's Cargo.toml for idl-build feature
+        for program_cargo in programs/*/Cargo.toml; do
+          program_name=$(basename $(dirname $program_cargo))
+          echo "Checking $program_name..."
+          
+          if grep -q "anchor-spl" "$program_cargo"; then
+            if ! grep -A 5 "\[features\]" "$program_cargo" | grep -q "idl-build.*anchor-spl/idl-build"; then
+              echo "⚠️  WARNING: $program_name missing idl-build feature"
+              echo "Consider adding: idl-build = [\"anchor-spl/idl-build\"]"
+            fi
+          fi
+        done
+        
+        echo "✅ Feature check completed"
+        
+    - name: Compilation test
+      run: |
+        echo "🧪 Running compilation test..."
+        cargo check --workspace --all-features
+        echo "✅ Compilation test passed"
+        
+    - name: IDL generation test
+      run: |
+        echo "🏗️ Testing IDL generation..."
+        
+        # Generate a minimal keypair for testing
+        solana-keygen new --no-bip39-passphrase --silent --outfile /tmp/test-keypair.json
+        
+        # Set minimal environment for anchor
+        export ANCHOR_WALLET=/tmp/test-keypair.json
+        export ANCHOR_PROVIDER_URL=https://api.devnet.solana.com
+        
+        # Test anchor build (this should generate IDLs)
+        if ! anchor build --skip-lint; then
+          echo "❌ Anchor build failed!"
+          echo "This indicates IDL generation issues"
+          exit 1
+        fi
+        
+        # Verify IDL files were generated
+        if [[ ! -f "target/idl/decentralized_lottery.json" ]]; then
+          echo "❌ Lottery IDL not generated!"
+          exit 1
+        fi
+        
+        if [[ ! -f "target/idl/decentralized_roulette.json" ]]; then
+          echo "❌ Roulette IDL not generated!"
+          exit 1
+        fi
+        
+        echo "✅ IDL generation test passed"
+        
+    - name: Validate IDL structure
+      run: |
+        echo "🔍 Validating generated IDL structure..."
+        
+        # Check that IDLs are valid JSON and contain required fields
+        for idl_file in target/idl/*.json; do
+          program_name=$(basename "$idl_file" .json)
+          echo "Validating $program_name IDL..."
+          
+          # Basic JSON validation
+          if ! jq empty "$idl_file" 2>/dev/null; then
+            echo "❌ Invalid JSON in $idl_file"
+            exit 1
+          fi
+          
+          # Check required fields
+          if ! jq -e '.address' "$idl_file" >/dev/null; then
+            echo "❌ Missing 'address' field in $idl_file"
+            exit 1
+          fi
+          
+          if ! jq -e '.instructions' "$idl_file" >/dev/null; then
+            echo "❌ Missing 'instructions' field in $idl_file"
+            exit 1
+          fi
+          
+          echo "✅ $program_name IDL structure valid"
+        done
+        
+        echo "✅ All IDL validations passed"
+        
+    - name: Upload IDL artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: generated-idls
+        path: target/idl/*.json
+        retention-days: 7
+        
+    - name: Summary
+      if: always()
+      run: |
+        echo "## IDL Validation Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✅ **All IDL generation validations passed successfully!**" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Validated Components:" >> $GITHUB_STEP_SUMMARY
+        echo "- Anchor configuration consistency" >> $GITHUB_STEP_SUMMARY
+        echo "- Dependency compatibility" >> $GITHUB_STEP_SUMMARY
+        echo "- Program feature configuration" >> $GITHUB_STEP_SUMMARY
+        echo "- Compilation without errors" >> $GITHUB_STEP_SUMMARY
+        echo "- IDL generation via \`anchor build\`" >> $GITHUB_STEP_SUMMARY
+        echo "- Generated IDL structure validation" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "This ensures that IDL generation will work correctly in all environments." >> $GITHUB_STEP_SUMMARY

@@ -218,6 +218,6 @@ pub fn generate_fallback_randomness(
     entropy_sources.extend_from_slice(&caller.to_bytes());
     
     // Hash all entropy sources
-    let hash = solana_program::keccak::hash(&entropy_sources);
+    let hash = anchor_lang::solana_program::keccak::hash(&entropy_sources);
     Ok(hash.to_bytes())
 }

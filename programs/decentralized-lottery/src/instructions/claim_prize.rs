@@ -8,23 +8,29 @@ use crate::events::PrizeClaimed;
 
 #[derive(Accounts)]
 pub struct ClaimPrize<'info> {
+    /// CHECK: Lottery account is validated in instruction logic
     #[account(mut)]
     pub lottery_account: AccountInfo<'info>,
 
+    /// CHECK: Ticket account is validated in instruction logic
     #[account(mut)]
     pub ticket_account: AccountInfo<'info>,
 
+    /// CHECK: Global config account is validated in instruction logic
     pub global_config: AccountInfo<'info>,
 
     #[account(mut)]
     pub winner: Signer<'info>,
 
+    /// CHECK: Lottery token account is validated in instruction logic
     #[account(mut)]
     pub lottery_token_account: AccountInfo<'info>,
 
+    /// CHECK: Winner token account is validated in instruction logic
     #[account(mut)]
     pub winner_token_account: AccountInfo<'info>,
 
+    /// CHECK: Treasury token account is validated in instruction logic
     #[account(mut)]
     pub treasury_token_account: AccountInfo<'info>,
 

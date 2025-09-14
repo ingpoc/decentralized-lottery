@@ -66,6 +66,23 @@ pub mod decentralized_lottery {
         instructions::settle_randomness::settle_randomness_handler(ctx)
     }
 
+    // === SWITCHBOARD VRF INSTRUCTIONS === (temporarily disabled)
+    
+    // /// Initialize Switchboard VRF for a lottery
+    // pub fn initialize_lottery_vrf(ctx: Context<InitializeLotteryVrf>) -> Result<()> {
+    //     instructions::switchboard_vrf::initialize_lottery_vrf_handler(ctx)
+    // }
+    //
+    // /// Request randomness from Switchboard VRF
+    // pub fn request_lottery_randomness(ctx: Context<RequestLotteryRandomness>) -> Result<()> {
+    //     instructions::switchboard_vrf::request_lottery_randomness_handler(ctx)
+    // }
+    //
+    // /// Consume randomness from Switchboard VRF
+    // pub fn consume_lottery_randomness(ctx: Context<ConsumeLotteryRandomness>) -> Result<()> {
+    //     instructions::switchboard_vrf::consume_lottery_randomness_handler(ctx)
+    // }
+
     // === EMERGENCY SECURITY CONTROLS ===
     
     /// Emergency pause/unpause functionality

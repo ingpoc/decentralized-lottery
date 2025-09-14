@@ -139,4 +139,10 @@ pub enum RouletteError {
     
     #[msg("Treasury fee calculation overflow")]
     TreasuryFeeOverflow = 6045,
+    
+    #[msg("Randomness not available")]
+    RandomnessNotAvailable = 6046,
+    
+    #[msg("Randomness generation failed")]
+    RandomnessGenerationFailed = 6047,
 }

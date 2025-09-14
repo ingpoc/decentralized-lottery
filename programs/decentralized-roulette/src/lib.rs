@@ -9,7 +9,13 @@ pub mod instructions;
 pub mod state;
 pub mod utils;
 
-use instructions::*;
+// Import only the basic instruction structs and handlers
+use instructions::initialize::*;
+use instructions::create_roulette::*;
+use instructions::place_bet::*;
+use instructions::lock_betting::*;
+use instructions::process_game_lifecycle::*;
+
 use state::roulette::{RouletteType, BetType};
 
 #[program]
@@ -46,80 +52,50 @@ pub mod decentralized_roulette {
         instructions::lock_betting::handler(ctx)
     }
 
-    // VRF-related functions for production-ready verifiable randomness
-    pub fn spin_roulette(ctx: Context<SpinRoulette>) -> Result<()> {
-        instructions::spin_roulette::handler(ctx)
-    }
-
-    pub fn settle_randomness(ctx: Context<SettleRandomness>) -> Result<()> {
-        instructions::settle_randomness::handler(ctx)
-    }
-
-    // Legacy VRF functions (fallback for development/testing) - TEMPORARILY DISABLED
-    // pub fn initialize_vrf_client(ctx: Context<InitializeVrfClient>) -> Result<()> {
-    //     instructions::vrf_client::initialize_vrf_client_handler(ctx)
-    // }
-
-    // pub fn request_randomness(ctx: Context<RequestRandomness>) -> Result<()> {
-    //     instructions::vrf_client::request_randomness_handler(ctx)
-    // }
-
-    // pub fn consume_randomness(ctx: Context<ConsumeRandomness>) -> Result<()> {
-    //     instructions::vrf_client::consume_randomness_handler(ctx)
-    // }
-
-    // Production Switchboard VRF functions (simplified for testing) - TEMPORARILY DISABLED
-    // pub fn initialize_switchboard_vrf(ctx: Context<InitializeSwitchboardVrf>) -> Result<()> {
-    //     instructions::switchboard_vrf_simple::initialize_switchboard_vrf_handler(ctx)
-    // }
-
-    // pub fn request_switchboard_randomness(ctx: Context<RequestSwitchboardRandomness>) -> Result<()> {
-    //     instructions::switchboard_vrf_simple::request_switchboard_randomness_handler(ctx)
-    // }
-
-    // pub fn consume_switchboard_randomness(ctx: Context<ConsumeSwitchboardRandomness>) -> Result<()> {
-    //     instructions::switchboard_vrf_simple::consume_switchboard_randomness_handler(ctx)
-    // }
-
-    pub fn claim_winnings(ctx: Context<ClaimWinnings>) -> Result<()> {
-        instructions::claim_winnings::handler(ctx)
-    }
-
-    pub fn cancel_roulette(ctx: Context<CancelRoulette>, reason: String) -> Result<()> {
-        instructions::cancel_roulette::handler(ctx, instructions::cancel_roulette::CancelRouletteArgs { reason })
-    }
-
-    // Automation instructions for continuous game management
+    // Uncomment the process_game_lifecycle instruction
     pub fn process_game_lifecycle(ctx: Context<ProcessGameLifecycle>) -> Result<()> {
         instructions::process_game_lifecycle::handler(ctx)
     }
 
-    pub fn create_next_game(ctx: Context<CreateNextGame>, nonce: u64) -> Result<()> {
-        instructions::create_next_game::handler(ctx, nonce)
-    }
-
-    // TukTuk-based automatic lifecycle processing (crank-turner calls this)
-    // DISABLED: Complex borrowing issues prevent compilation
-    // pub fn public_lifecycle_keeper(ctx: Context<PublicLifecycleKeeper>) -> Result<()> {
-    //     instructions::public_lifecycle_keeper::handler(ctx)
+    // Comment out complex instructions for now to simplify debugging
+    // VRF-related functions for production-ready verifiable randomness
+    // pub fn spin_roulette(ctx: Context<SpinRoulette>) -> Result<()> {
+    //     instructions::spin_roulette::handler(ctx)
     // }
 
-    // Simple, working lifecycle keeper for production use
-    pub fn simple_lifecycle_keeper(ctx: Context<SimpleLifecycleKeeper>) -> Result<()> {
-        instructions::simple_lifecycle_keeper::handler(ctx)
-    }
+    // pub fn settle_randomness(ctx: Context<SettleRandomness>) -> Result<()> {
+    //     instructions::settle_randomness::handler(ctx)
+    // }
 
-    // === EMERGENCY SECURITY CONTROLS ===
+    // pub fn claim_winnings(ctx: Context<ClaimWinnings>) -> Result<()> {
+    //     instructions::claim_winnings::handler(ctx)
+    // }
+
+    // pub fn cancel_roulette(ctx: Context<CancelRoulette>, reason: String) -> Result<()> {
+    //     instructions::cancel_roulette::handler(ctx, instructions::cancel_roulette::CancelRouletteArgs { reason })
+    // }
+
+    // // Automation instructions for continuous game management
+    // pub fn create_next_game(ctx: Context<CreateNextGame>, nonce: u64) -> Result<()> {
+    //     instructions::create_next_game::handler(ctx, nonce)
+    // }
+
+    // // Simple, working lifecycle keeper for production use
+    // pub fn simple_lifecycle_keeper(ctx: Context<SimpleLifecycleKeeper>) -> Result<()> {
+    //     instructions::simple_lifecycle_keeper::handler(ctx)
+    // }
+
+    // // === EMERGENCY SECURITY CONTROLS ===
     
-    /// Emergency pause/unpause functionality
-    /// Only callable by the global authority
-    pub fn emergency_pause_toggle(ctx: Context<EmergencyPauseToggle>, pause: bool) -> Result<()> {
-        instructions::emergency_pause::handler(ctx, pause)
-    }
+    // /// Emergency pause/unpause functionality
+    // /// Only callable by the global authority
+    // pub fn emergency_pause_toggle(ctx: Context<EmergencyPauseToggle>, pause: bool) -> Result<()> {
+    //     instructions::emergency_pause::handler(ctx, pause)
+    // }
 
-    /// Force end a game in emergency situations
-    /// Only callable by the global authority
-    pub fn force_end_game(ctx: Context<ForceEndGame>) -> Result<()> {
-        instructions::emergency_pause::force_end_game_handler(ctx)
-    }
+    // /// Force end a game in emergency situations
+    // /// Only callable by the global authority
+    // pub fn force_end_game(ctx: Context<ForceEndGame>) -> Result<()> {
+    //     instructions::emergency_pause::force_end_game_handler(ctx)
+    // }
 }

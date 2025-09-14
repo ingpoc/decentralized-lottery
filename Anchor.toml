@@ -1,5 +1,5 @@
 [toolchain]
-anchor_version = "0.30.1"
+anchor_version = "0.31.1"
 
 [features]
 resolution = true
@@ -13,6 +13,7 @@ decentralized_roulette = "HFpMuAtTLCJQoo1bxZ9XUfyoaABSjhDf7ehgjpBBgDJo"
 [programs.localnet]
 decentralized_lottery = "BH1qtDhU6PtB1jrUJPf8JoNt34ELuTvVTDktDLFyq2JV"
 decentralized_roulette = "saLmMwuHKHDvaaPsA6GRaEjjzvmhx1VRgJGYeJpNDbr"
+
 [registry]
 url = "https://api.apr.dev"
 

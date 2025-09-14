@@ -75,7 +75,7 @@ pub fn handler(ctx: Context<SpinRoulette>) -> Result<()> {
     // Generate pseudo-random number (0-36 for European roulette)
     let combined_entropy = timestamp.wrapping_add(slot as i64);
     let hash_input = [&seed[..], &combined_entropy.to_le_bytes()[..]].concat();
-    let hash = solana_program::keccak::hash(&hash_input);
+    let hash = anchor_lang::solana_program::keccak::hash(&hash_input);
     let random_value = u32::from_le_bytes([hash.0[0], hash.0[1], hash.0[2], hash.0[3]]);
     let winning_number = (random_value % 37) as u8; // 0-36 for European roulette
     

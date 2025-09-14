@@ -14,28 +14,21 @@ development = []  # Feature flag for development/testing only code
 cpi = ["no-entrypoint"]
 no-entrypoint = []
 no-log-ix-name = []
-idl-build = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 no-log-data = []
 anchor-debug = []
-custom-heap = []
-custom-panic = []
-no-idl = []
 
 [dependencies]
 anchor-lang = { workspace = true }
 anchor-spl = { workspace = true }
-anchor-derive-space = "0.30.1"
-spl-token = { workspace = true, default-features = false, features = ["no-entrypoint"] }
-spl-associated-token-account = { workspace = true }
+anchor-derive-space = "0.31.1"
 thiserror = "1.0"
 num-derive = "0.4.2"
-solana-program = { workspace = true }
-# switchboard-solana = { workspace = true }  # Temporarily disabled while testing basic structure
-# bytemuck = "1.13.1"  # Required for Switchboard VRF result parsing - disabled for now
-# tuktuk-sdk = { git = "https://github.com/helium/tuktuk.git", branch = "main" }  # TukTuk SDK - disabled due to version conflict
-
-[profile.release]
-overflow-checks = true
+# switchboard-solana = { workspace = true }  # Temporarily disabled - VRF instructions are commented out
+# bytemuck = "1.13.1"  # Required for Switchboard VRF result parsing - disabled with switchboard
+bincode = { workspace = true }
+# Ensure span locations are enabled globally for IDL generation (anchor-syn -> proc-macro2::Span::source_file)
+proc-macro2 = { version = "1.0", features = ["span-locations"] }
 
 [package.metadata.anchor]
-program = { name = "decentralized_roulette", id = "4ZVg5wU59Tr6pKAfxkTFsF2cffGrVRM2xqt1WbPUJrUB" }
+program = { name = "decentralized_roulette", id = "saLmMwuHKHDvaaPsA6GRaEjjzvmhx1VRgJGYeJpNDbr" }

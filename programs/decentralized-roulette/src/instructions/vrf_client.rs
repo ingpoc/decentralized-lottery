@@ -1,8 +1,10 @@
 use anchor_lang::prelude::*;
+// VRF functionality temporarily disabled - will be re-enabled with compatible switchboard version
+// use switchboard_solana::VrfAccountData;
 use crate::state::global_config::GlobalConfig;
 use crate::state::roulette::{RouletteAccount, RouletteState};
 use crate::errors::RouletteError;
-use crate::events::{RandomnessRequested, RouletteStateChanged};
+use crate::events::{RandomnessRequested, RouletteStateChanged, VrfCompleted};
 use crate::constants::*;
 
 /// VRF Client management for secure randomness
@@ -36,6 +38,14 @@ pub struct InitializeVrfClient<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
     
+    /// Switchboard VRF account
+    #[account(mut)]
+    pub switchboard_vrf: AccountLoader<'info, VrfAccountData>,
+    
+    /// CHECK: Switchboard program
+    #[account(address = "SW1TCH7qEPTdLsDHRgPuMQjbQxKdH2aBStViMFnt64f")]
+    pub switchboard_program: AccountInfo<'info>,
+    
     pub system_program: Program<'info, System>,
 }
 
@@ -62,10 +72,63 @@ pub struct RequestRandomness<'info> {
     )]
     pub global_config: Account<'info, GlobalConfig>,
     
+    /// Switchboard VRF account
+    #[account(mut)]
+    pub switchboard_vrf: AccountLoader<'info, VrfAccountData>,
+    
+    /// Switchboard Oracle Queue account
+    /// CHECK: Validated by Switchboard CPI
+    #[account(mut)]
+    pub oracle_queue: AccountInfo<'info>,
+    
+    /// Queue Authority
+    /// CHECK: Validated by Switchboard CPI  
+    #[account(mut)]
+    pub queue_authority: AccountInfo<'info>,
+    
+    /// Data Buffer
+    /// CHECK: Validated by Switchboard CPI
+    #[account(mut)]
+    pub data_buffer: AccountInfo<'info>,
+    
+    /// Permission account
+    /// CHECK: Validated by Switchboard CPI
+    #[account(mut)]
+    pub permission: AccountInfo<'info>,
+    
+    /// Escrow account (for payment)
+    /// CHECK: Validated by Switchboard CPI
+    #[account(mut)]
+    pub escrow: AccountInfo<'info>,
+    
+    /// Payer wallet for VRF fees
+    /// CHECK: Validated by Switchboard CPI
+    #[account(mut)]
+    pub payer_wallet: AccountInfo<'info>,
+    
+    /// Payer authority
+    /// CHECK: Validated by Switchboard CPI
+    #[account(mut)]
+    pub payer_authority: AccountInfo<'info>,
+    
+    /// Program state account (PDA authority for VRF)
+    #[account(
+        seeds = [GLOBAL_CONFIG_SEED],
+        bump = global_config.bump
+    )]
+    pub program_state: Account<'info, GlobalConfig>,
+    
     /// Recent blockhashes sysvar for entropy
     /// CHECK: Solana sysvar for recent blockhashes
-    #[account(address = anchor_lang::solana_program::sysvar::slot_hashes::id())]
+    #[account(address = anchor_lang::solana_program::sysvar::recent_blockhashes::id())]
     pub recent_blockhashes: AccountInfo<'info>,
+    
+    /// CHECK: Switchboard program
+    #[account(address = "SW1TCH7qEPTdLsDHRgPuMQjbQxKdH2aBStViMFnt64f")]
+    pub switchboard_program: AccountInfo<'info>,
+    
+    /// Token program for escrow payment
+    pub token_program: Program<'info, anchor_spl::token::Token>,
     
     pub caller: Signer<'info>,
 }
@@ -87,9 +150,9 @@ pub struct ConsumeRandomness<'info> {
     )]
     pub vrf_client: Account<'info, VrfClientAccount>,
     
-    /// CHECK: Switchboard randomness account (when available)
+    /// Switchboard VRF account containing the result
     #[account(mut)]
-    pub randomness_account: UncheckedAccount<'info>,
+    pub switchboard_vrf: AccountLoader<'info, VrfAccountData>,
     
     pub caller: Signer<'info>,
 }
@@ -127,10 +190,16 @@ pub fn initialize_vrf_client_handler(ctx: Context<InitializeVrfClient>) -> Resul
     let roulette = &mut ctx.accounts.roulette;
     let clock = Clock::get()?;
     
+    // Verify VRF account is owned by Switchboard
+    require!(
+        ctx.accounts.switchboard_vrf.to_account_info().owner == &"SW1TCH7qEPTdLsDHRgPuMQjbQxKdH2aBStViMFnt64f",
+        RouletteError::InvalidVrfAccount
+    );
+    
     // Initialize VRF client
     vrf_client.roulette = roulette.key();
     vrf_client.authority = ctx.accounts.authority.key();
-    vrf_client.randomness_account = None;
+    vrf_client.randomness_account = Some(ctx.accounts.switchboard_vrf.key());
     vrf_client.is_initialized = true;
     vrf_client.request_count = 0;
     vrf_client.last_request_timestamp = 0;
@@ -169,17 +238,39 @@ pub fn request_randomness_handler(ctx: Context<RequestRandomness>) -> Result<()>
     let old_state = roulette.state.clone();
     roulette.state = RouletteState::AwaitingRandomness;
     
-    // For production: Implement Switchboard VRF request here
-    // For now: Use secure multi-source entropy as fallback
-    let randomness_request_key = generate_randomness_request_key(
-        &roulette,
-        &vrf_client,
-        &ctx.accounts.recent_blockhashes,
-        &clock,
-        &ctx.accounts.caller.key()
+    // Create Switchboard VRF request
+    let global_config = &ctx.accounts.global_config;
+    let state_seeds: &[&[u8]] = &[
+        GLOBAL_CONFIG_SEED,
+        &[global_config.bump],
+    ];
+    
+    // Create VRF request using Switchboard CPI
+    let vrf_request_randomness = VrfRequestRandomness {
+        authority: ctx.accounts.program_state.to_account_info(),
+        vrf: ctx.accounts.switchboard_vrf.to_account_info(),
+        oracle_queue: ctx.accounts.oracle_queue.to_account_info(),
+        queue_authority: ctx.accounts.queue_authority.to_account_info(),
+        data_buffer: ctx.accounts.data_buffer.to_account_info(),
+        permission: ctx.accounts.permission.to_account_info(),
+        escrow: ctx.accounts.escrow.clone(),
+        payer_wallet: ctx.accounts.payer_wallet.clone(),
+        payer_authority: ctx.accounts.payer_authority.to_account_info(),
+        recent_blockhashes: ctx.accounts.recent_blockhashes.to_account_info(),
+        program_state: ctx.accounts.program_state.to_account_info(),
+        token_program: ctx.accounts.token_program.to_account_info(),
+    };
+    
+    msg!("Requesting Switchboard VRF randomness for roulette: {}", roulette.key());
+    
+    // Invoke the Switchboard VRF request with PDA authority
+    vrf_request_randomness.invoke_signed(
+        ctx.accounts.switchboard_program.to_account_info(),
+        &[state_seeds],
     )?;
     
-    roulette.vrf_request_key = Some(randomness_request_key);
+    // Store request timestamp for validation
+    roulette.vrf_request_timestamp = Some(clock.unix_timestamp);
     
     // Emit events
     emit!(RouletteStateChanged {
@@ -195,32 +286,36 @@ pub fn request_randomness_handler(ctx: Context<RequestRandomness>) -> Result<()>
         timestamp: clock.unix_timestamp,
     });
     
-    msg!("Randomness requested for roulette: {}", roulette.key());
+    msg!("Switchboard VRF request submitted successfully");
     Ok(())
 }
 
-/// Consume randomness and determine winning number
+/// Consume randomness from Switchboard VRF result
 pub fn consume_randomness_handler(ctx: Context<ConsumeRandomness>) -> Result<()> {
     let roulette = &mut ctx.accounts.roulette;
-    let vrf_client = &mut ctx.accounts.vrf_client;
     let clock = Clock::get()?;
     
     // Validate minimum time has passed since request (prevents manipulation)
-    require!(
-        clock.unix_timestamp >= vrf_client.last_request_timestamp + 10, // 10 seconds minimum
-        RouletteError::TooEarly
-    );
+    if let Some(request_time) = roulette.vrf_request_timestamp {
+        require!(
+            clock.unix_timestamp >= request_time + VRF_REQUEST_DELAY,
+            RouletteError::TooEarly
+        );
+    }
     
-    // Generate secure randomness
-    let randomness = generate_secure_randomness(
-        &ctx.accounts.randomness_account,
-        &roulette,
-        &vrf_client,
-        &clock,
-        &ctx.accounts.caller.key()
-    )?;
+    // Load VRF account data
+    let vrf = ctx.accounts.switchboard_vrf.load()?;
     
-    // Extract winning number (0-36 for European roulette)
+    // Get VRF result
+    let result_buffer = vrf.get_result()?;
+    if result_buffer.is_empty() {
+        return Err(RouletteError::RandomnessNotAvailable.into());
+    }
+    
+    // Extract randomness from Switchboard VRF result
+    let randomness = extract_switchboard_randomness(&result_buffer)?;
+    
+    // Extract winning number based on roulette type
     let winning_number = extract_winning_number(&randomness, roulette.roulette_type);
     
     // Update roulette state
@@ -230,8 +325,71 @@ pub fn consume_randomness_handler(ctx: Context<ConsumeRandomness>) -> Result<()>
     roulette.state = RouletteState::Completed;
     roulette.completed_at = Some(clock.unix_timestamp);
     
-    msg!("Randomness consumed. Winning number: {} for roulette: {}", winning_number, roulette.key());
+    // Calculate treasury fee
+    let total_bet_amount = roulette.total_bet_amount;
+    let treasury_fee = total_bet_amount
+        .checked_mul(200u64)
+        .and_then(|result| result.checked_div(10000))
+        .ok_or(RouletteError::TreasuryFeeOverflow)?;
+    roulette.treasury_fee_collected = treasury_fee;
+    
+    // Emit completion event
+    emit!(VrfCompleted {
+        roulette_id: roulette.key(),
+        winning_number,
+        randomness_source: "switchboard".to_string(),
+        timestamp: clock.unix_timestamp,
+    });
+    
+    msg!("Switchboard VRF consumed. Winning number: {} for roulette: {}", winning_number, roulette.key());
     Ok(())
+}
+
+/// Extract randomness from Switchboard VRF result buffer
+fn extract_switchboard_randomness(result_buffer: &[u8]) -> Result<[u8; 32]> {
+    // Switchboard VRF returns 128-bit randomness
+    // We need to extract and expand it to 256-bit for our use
+    let value: &[u128] = bytemuck::cast_slice(result_buffer);
+    
+    if value.is_empty() {
+        return Err(RouletteError::RandomnessNotAvailable.into());
+    }
+    
+    let vrf_result = value[0];
+    
+    // Convert to bytes and create secure 256-bit randomness
+    let mut randomness = [0u8; 32];
+    
+    // Use the VRF result as primary entropy
+    let vrf_bytes = vrf_result.to_le_bytes();
+    randomness[..16].copy_from_slice(&vrf_bytes);
+    
+    // Add secondary entropy from clock and other sources for full 256-bit
+    let clock = Clock::get().map_err(|_| RouletteError::RandomnessGenerationFailed)?;
+    let timestamp_bytes = clock.unix_timestamp.to_le_bytes();
+    let slot_bytes = clock.slot.to_le_bytes();
+    
+    randomness[16..24].copy_from_slice(&timestamp_bytes);
+    randomness[24..32].copy_from_slice(&slot_bytes);
+    
+    // Hash everything together for final randomness
+    let hash = anchor_lang::solana_program::keccak::hash(&randomness);
+    Ok(hash.to_bytes())
+}
+
+/// Extract winning number from randomness based on roulette type
+fn extract_winning_number(randomness: &[u8; 32], roulette_type: crate::state::roulette::RouletteType) -> u8 {
+    // Use first 4 bytes for the random value
+    let random_u32 = u32::from_le_bytes([randomness[0], randomness[1], randomness[2], randomness[3]]);
+    
+    match roulette_type {
+        crate::state::roulette::RouletteType::European => {
+            (random_u32 % 37) as u8 // 0-36
+        }
+        crate::state::roulette::RouletteType::American => {
+            (random_u32 % 38) as u8 // 0-37 (includes 00 as 37)
+        }
+    }
 }
 
 /// Generate a randomness request key for tracking
@@ -259,11 +417,11 @@ fn generate_randomness_request_key(
     }
     
     // Create deterministic but unpredictable key
-    let hash = solana_program::keccak::hash(&seed_data);
+    let hash = anchor_lang::solana_program::keccak::hash(&seed_data);
     Ok(Pubkey::new_from_array(hash.to_bytes()))
 }
 
-/// Generate cryptographically secure randomness
+/// Generate cryptographically secure randomness - DEPRECATED: Use Switchboard VRF instead
 fn generate_secure_randomness(
     randomness_account: &UncheckedAccount,
     roulette: &RouletteAccount,
@@ -271,8 +429,7 @@ fn generate_secure_randomness(
     clock: &Clock,
     caller: &Pubkey,
 ) -> Result<[u8; 32]> {
-    // TODO: When Switchboard is available, consume actual VRF randomness here
-    // For now, use multiple entropy sources for secure fallback
+    msg!("WARNING: Using fallback randomness generation - NOT for production use");
     
     let mut entropy_sources = Vec::new();
     
@@ -302,21 +459,7 @@ fn generate_secure_randomness(
     entropy_sources.extend_from_slice(&caller.to_bytes());
     
     // Hash all entropy sources
-    let hash = solana_program::keccak::hash(&entropy_sources);
+    let hash = anchor_lang::solana_program::keccak::hash(&entropy_sources);
     Ok(hash.to_bytes())
 }
 
-/// Extract winning number from randomness based on roulette type
-fn extract_winning_number(randomness: &[u8; 32], roulette_type: crate::state::roulette::RouletteType) -> u8 {
-    // Use first 4 bytes for the random value
-    let random_u32 = u32::from_le_bytes([randomness[0], randomness[1], randomness[2], randomness[3]]);
-    
-    match roulette_type {
-        crate::state::roulette::RouletteType::European => {
-            (random_u32 % 37) as u8 // 0-36
-        }
-        crate::state::roulette::RouletteType::American => {
-            (random_u32 % 38) as u8 // 0-37 (includes 00 as 37)
-        }
-    }
-}

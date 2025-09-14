@@ -42,46 +42,78 @@ pub fn settle_randomness_handler(ctx: Context<SettleRandomness>) -> Result<()> {
     // Store the account key before making mutable changes
     let lottery_key = lottery_account.key();
 
-    // Ensure sufficient time has passed since drawing started (prevents manipulation)
-    require!(
-        clock.unix_timestamp >= lottery_account.draw_time + 10, // 10 seconds minimum delay
-        LotteryError::TooEarly
-    );
+    // Check if we have VRF randomness available
+    if let Some(vrf_randomness) = lottery_account.vrf_randomness {
+        // Use Switchboard VRF randomness
+        lottery_account.randomness_fulfilled = true;
+        let previous_state = lottery_account.state.clone();
+        lottery_account.state = LotteryState::Completed;
+        lottery_account.completed_at = Some(clock.unix_timestamp);
 
-    // Generate secure randomness using multiple entropy sources
-    let randomness = generate_secure_randomness(
-        &ctx.accounts.recent_blockhashes,
-        clock,
-        &lottery_account,
-        &ctx.accounts.caller.key(),
-        &lottery_key
-    )?;
+        // Emit events
+        emit!(RandomnessSettled {
+            lottery_id: lottery_key,
+            randomness: vrf_randomness,
+            timestamp: clock.unix_timestamp,
+            block_height: clock.slot,
+        });
 
-    // Store the randomness and mark as fulfilled
-    lottery_account.vrf_randomness = Some(randomness);
-    lottery_account.randomness_fulfilled = true;
-    let previous_state = lottery_account.state.clone();
-    lottery_account.state = LotteryState::Completed;
-    lottery_account.completed_at = Some(clock.unix_timestamp);
+        emit!(crate::events::LotteryStateChanged {
+            lottery_id: lottery_key,
+            previous_state,
+            new_state: lottery_account.state.clone(),
+            timestamp: clock.unix_timestamp,
+            total_tickets_sold: lottery_account.total_tickets,
+            current_prize_pool: lottery_account.prize_pool,
+        });
 
-    // Emit events
-    emit!(RandomnessSettled {
-        lottery_id: lottery_key,
-        randomness,
-        timestamp: clock.unix_timestamp,
-        block_height: clock.slot,
-    });
+        msg!("VRF randomness used for lottery completion");
+    } else {
+        // Use fallback randomness generation
+        msg!("WARNING: Using fallback randomness generation - NOT for production use");
 
-    emit!(crate::events::LotteryStateChanged {
-        lottery_id: lottery_key,
-        previous_state,
-        new_state: lottery_account.state.clone(),
-        timestamp: clock.unix_timestamp,
-        total_tickets_sold: lottery_account.total_tickets,
-        current_prize_pool: lottery_account.prize_pool,
-    });
+        // Ensure sufficient time has passed since drawing started (prevents manipulation)
+        require!(
+            clock.unix_timestamp >= lottery_account.draw_time + 10, // 10 seconds minimum delay
+            LotteryError::TooEarly
+        );
 
-    msg!("Secure randomness generated and lottery completed");
+        // Generate secure randomness using multiple entropy sources
+        let randomness = generate_secure_randomness(
+            &ctx.accounts.recent_blockhashes,
+            clock,
+            &lottery_account,
+            &ctx.accounts.caller.key(),
+            &lottery_key
+        )?;
+
+        // Store the randomness and mark as fulfilled
+        lottery_account.vrf_randomness = Some(randomness);
+        lottery_account.randomness_fulfilled = true;
+        let previous_state = lottery_account.state.clone();
+        lottery_account.state = LotteryState::Completed;
+        lottery_account.completed_at = Some(clock.unix_timestamp);
+
+        // Emit events
+        emit!(RandomnessSettled {
+            lottery_id: lottery_key,
+            randomness,
+            timestamp: clock.unix_timestamp,
+            block_height: clock.slot,
+        });
+
+        emit!(crate::events::LotteryStateChanged {
+            lottery_id: lottery_key,
+            previous_state,
+            new_state: lottery_account.state.clone(),
+            timestamp: clock.unix_timestamp,
+            total_tickets_sold: lottery_account.total_tickets,
+            current_prize_pool: lottery_account.prize_pool,
+        });
+
+        msg!("Secure fallback randomness generated and lottery completed");
+    }
+
     Ok(())
 }
 

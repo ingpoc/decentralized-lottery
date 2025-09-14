@@ -1,5 +1,4 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Token, TokenAccount, Mint};
 use crate::state::GlobalConfig;
 use crate::errors::LotteryError;
 use crate::events::ConfigUpdated;
@@ -16,14 +15,6 @@ pub struct UpdateConfig<'info> {
     
     #[account(mut)]
     pub admin: Signer<'info>,
-    
-    /// New USDC mint (optional update)
-    pub new_usdc_mint: Option<Account<'info, Mint>>,
-    
-    /// New treasury token account (optional update)  
-    pub new_treasury_token_account: Option<Account<'info, TokenAccount>>,
-    
-    pub token_program: Program<'info, Token>,
 }
 
 pub fn update_config_handler(
@@ -39,35 +30,7 @@ pub fn update_config_handler(
     let old_admin = Some(global_config.admin);
     let old_paused_state = Some(global_config.is_paused);
     
-    let mut usdc_mint_updated = false;
-    let mut treasury_updated = false;
     let mut fee_percentage_updated = false;
-    
-    // Update USDC mint if provided
-    if let Some(new_mint) = &ctx.accounts.new_usdc_mint {
-        require!(
-            new_mint.key() != global_config.usdc_mint,
-            LotteryError::InvalidTokenAccount
-        );
-        global_config.usdc_mint = new_mint.key();
-        usdc_mint_updated = true;
-        msg!("USDC mint updated to: {}", new_mint.key());
-    }
-    
-    // Update treasury token account if provided
-    if let Some(new_treasury) = &ctx.accounts.new_treasury_token_account {
-        require!(
-            new_treasury.key() != global_config.treasury_token_account,
-            LotteryError::InvalidTokenAccount
-        );
-        require!(
-            new_treasury.mint == global_config.usdc_mint,
-            LotteryError::InvalidTokenAccount
-        );
-        global_config.treasury_token_account = new_treasury.key();
-        treasury_updated = true;
-        msg!("Treasury token account updated to: {}", new_treasury.key());
-    }
     
     // Update treasury fee percentage if provided
     if let Some(fee) = new_fee_percentage {
@@ -102,8 +65,7 @@ pub fn update_config_handler(
     
     // Require at least one update
     require!(
-        usdc_mint_updated || treasury_updated || fee_percentage_updated || 
-        new_admin.is_some() || is_paused.is_some(),
+        fee_percentage_updated || new_admin.is_some() || is_paused.is_some(),
         LotteryError::NoConfigChanges
     );
     

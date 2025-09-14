@@ -1,8 +1,9 @@
 use anchor_lang::prelude::*;
 use crate::state::lottery::{LotteryAccount, LotteryState};
+use crate::state::ticket::TicketAccount;
 use crate::errors::LotteryError;
-use crate::events::{LotteryWinnerDetermined, LotteryStateChanged}; // Assuming this event exists and is suitable
-use crate::utils; // For get_ticket_pda_pubkey
+use crate::events::{LotteryWinnerDetermined, LotteryStateChanged};
+use crate::utils;
 
 #[derive(Accounts)]
 pub struct SelectWinner<'info> {
@@ -15,9 +16,13 @@ pub struct SelectWinner<'info> {
         constraint = lottery_account.vrf_randomness.is_some() @ LotteryError::RandomnessNotAvailable,
         constraint = lottery_account.winning_ticket.is_none() @ LotteryError::WinnerAlreadySelected
     )]
-    pub lottery_account: Box<Account<'info, LotteryAccount>>,
-    // pub admin: Signer<'info>, // Optional: If admin needs to trigger this
-    pub system_program: Program<'info, System>, // Added for PDA derivation if needed by utils
+    pub lottery_account: Account<'info, LotteryAccount>,
+
+    /// CHECK: Winning ticket account is validated in instruction logic
+    #[account(mut)]
+    pub winning_ticket_account: AccountInfo<'info>,
+
+    pub system_program: Program<'info, System>,
 }
 
 pub fn select_winner_handler(ctx: Context<SelectWinner>) -> Result<()> {
@@ -28,22 +33,16 @@ pub fn select_winner_handler(ctx: Context<SelectWinner>) -> Result<()> {
     let vrf_randomness_bytes = lottery_account.vrf_randomness.ok_or(LotteryError::RandomnessNotAvailable)?;
 
     if lottery_account.total_tickets == 0 {
-        // This case should ideally be handled before VRF request, or result in LotteryState::Expired.
-        // If it reaches here, it implies an issue or a scenario where no tickets were sold
-        // but randomness was still requested and fulfilled.
-        // Depending on desired behavior, could error out or set to Expired again.
-        // For now, error out as it's an unexpected state for winner selection.
         return Err(LotteryError::NoTicketsSold.into());
     }
 
     // Convert randomness bytes to a u64.
-    // Taking the first 8 bytes. Ensure this is consistent with how randomness is generated/stored.
     let mut randomness_u64_bytes = [0u8; 8];
     randomness_u64_bytes.copy_from_slice(&vrf_randomness_bytes[0..8]);
     let random_value = u64::from_le_bytes(randomness_u64_bytes);
 
-    // Select winning ticket ID
-    let winning_ticket_id = (random_value % lottery_account.total_tickets) + 1; // Assuming ticket IDs are 1-based
+    // Select winning ticket ID (1-based)
+    let winning_ticket_id = (random_value % lottery_account.total_tickets) + 1;
 
     // Derive the winning ticket PDA
     let winning_ticket_pda = utils::get_ticket_pda_pubkey(
@@ -51,22 +50,30 @@ pub fn select_winner_handler(ctx: Context<SelectWinner>) -> Result<()> {
         winning_ticket_id
     )?;
 
+    // Validate the provided ticket account matches the winning ticket
+    require!(winning_ticket_pda == ctx.accounts.winning_ticket_account.key(), LotteryError::InvalidWinningTicket);
+
+    // Load and deserialize the winning ticket account
+    let ticket_data = ctx.accounts.winning_ticket_account.try_borrow_data()?;
+    let winning_ticket: TicketAccount = TicketAccount::try_deserialize(&mut ticket_data.as_ref())?;
+    drop(ticket_data);
+
+    // Validate ticket belongs to this lottery
+    require!(winning_ticket.lottery == lottery_account.key(), LotteryError::TicketNotForThisLottery);
+
+    // Get the actual winner's public key
+    let winner_pubkey = winning_ticket.buyer;
+
     lottery_account.winning_ticket = Some(winning_ticket_pda);
     lottery_account.set_is_prize_pool_locked(true); // Lock prize pool now that winner is selected
     
-    // PRODUCTION: Automatically transition to Completed state after winner selection
-    let previous_state = lottery_account.state.clone();
-    lottery_account.state = LotteryState::Completed;
-    lottery_account.completed_at = Some(clock.unix_timestamp);
-
-    // Note: To get the actual winner's public key, we would need to load the ticket account
-    // For now, we'll use a placeholder since we don't have the ticket account in the context
-    let winner_pubkey = Pubkey::default(); // This should be replaced with actual ticket owner lookup
+    // Mark lottery as completed
+    lottery_account.mark_completed(clock.unix_timestamp);
 
     // Emit winner determination event with actual winner address
     emit!(LotteryWinnerDetermined {
         lottery_id: lottery_account.key(),
-        previous_state: previous_state.clone(),
+        previous_state: LotteryState::Completed,
         new_state: LotteryState::Completed,
         winner: winner_pubkey, // Actual winner's wallet address
         randomness: random_value,
@@ -76,7 +83,7 @@ pub fn select_winner_handler(ctx: Context<SelectWinner>) -> Result<()> {
     // Emit state change event
     emit!(LotteryStateChanged {
         lottery_id: lottery_account.key(),
-        previous_state,
+        previous_state: LotteryState::Completed,
         new_state: LotteryState::Completed,
         timestamp: clock.unix_timestamp,
         total_tickets_sold: lottery_account.total_tickets,

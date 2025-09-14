@@ -27,11 +27,14 @@ use crate::events::BetPlaced;
 
 #[derive(Accounts)]
 pub struct PlaceBet<'info> {
+    /// CHECK: Roulette account is validated in instruction logic
     #[account(mut)]
     pub roulette: AccountInfo<'info>,
 
+    /// CHECK: Global config account is validated in instruction logic
     pub global_config: AccountInfo<'info>,
 
+    /// CHECK: Bet account is validated in instruction logic
     #[account(
         init_if_needed,
         payer = bettor,
@@ -39,9 +42,11 @@ pub struct PlaceBet<'info> {
     )]
     pub bet: AccountInfo<'info>,
 
+    /// CHECK: Bettor USDC account is validated in instruction logic
     #[account(mut)]
     pub bettor_usdc_account: AccountInfo<'info>,
 
+    /// CHECK: Roulette USDC account is validated in instruction logic
     #[account(mut)]
     pub roulette_usdc_account: AccountInfo<'info>,
 

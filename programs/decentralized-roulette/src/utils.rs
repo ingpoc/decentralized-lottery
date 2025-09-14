@@ -1,4 +1,4 @@
-// use anchor_lang::prelude::*;
+use anchor_lang::prelude::*;
 
 /// Utility functions for roulette operations
 
@@ -34,4 +34,65 @@ pub fn is_red_number(number: u8) -> bool {
 
 pub fn is_black_number(number: u8) -> bool {
     get_black_numbers().contains(&number)
+}
+
+/// Derive the bet PDA for a given roulette and bet ID
+pub fn get_bet_pda_pubkey(roulette: &Pubkey, bet_id: u64) -> Result<Pubkey> {
+    let (pda, _) = Pubkey::find_program_address(
+        &[
+            crate::constants::BET_SEED,
+            roulette.as_ref(),
+            &bet_id.to_le_bytes(),
+        ],
+        &crate::id(),
+    );
+    Ok(pda)
+}
+
+/// Derive the roulette PDA for a given authority and nonce
+pub fn get_roulette_pda_pubkey(authority: &Pubkey, nonce: u64) -> Result<Pubkey> {
+    let (pda, _) = Pubkey::find_program_address(
+        &[
+            crate::constants::ROULETTE_SEED,
+            authority.as_ref(),
+            &nonce.to_le_bytes(),
+        ],
+        &crate::id(),
+    );
+    Ok(pda)
+}
+
+/// Derive the VRF client PDA for a given roulette
+pub fn get_vrf_client_pda_pubkey(roulette: &Pubkey) -> Result<Pubkey> {
+    let (pda, _) = Pubkey::find_program_address(
+        &[
+            crate::constants::VRF_CLIENT_SEED,
+            roulette.as_ref(),
+        ],
+        &crate::id(),
+    );
+    Ok(pda)
+}
+
+/// Calculate total refunds needed for a roulette game
+/// Returns the total amount that needs to be refunded to all bettors
+pub fn calculate_total_refunds(roulette: &crate::state::roulette::RouletteAccount) -> Result<u64> {
+    // For expired/cancelled games, all bets need to be refunded
+    // This is a simplified calculation - in practice, you'd need to iterate through all bet accounts
+    // For now, we'll use the total bet amount as a proxy
+    Ok(roulette.total_bet_amount)
+}
+
+/// Validate that a given pubkey matches the expected bet PDA
+pub fn validate_bet_pda(roulette: &Pubkey, bet_id: u64, bet_pda: &Pubkey) -> Result<()> {
+    let expected_pda = get_bet_pda_pubkey(roulette, bet_id)?;
+    require!(expected_pda == *bet_pda, crate::errors::RouletteError::InvalidAccount);
+    Ok(())
+}
+
+/// Validate that a given pubkey matches the expected roulette PDA
+pub fn validate_roulette_pda(authority: &Pubkey, nonce: u64, roulette_pda: &Pubkey) -> Result<()> {
+    let expected_pda = get_roulette_pda_pubkey(authority, nonce)?;
+    require!(expected_pda == *roulette_pda, crate::errors::RouletteError::InvalidAccount);
+    Ok(())
 }
