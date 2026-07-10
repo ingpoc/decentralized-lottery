@@ -1,0 +1,2130 @@
+{
+  "address": "H68tD5YsVLrtes5UfAa7iEEvvqcGNj2FGXxQgzMMS4pw",
+  "metadata": {
+    "name": "decentralized_lottery",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "buy_ticket",
+      "discriminator": [
+        11,
+        24,
+        17,
+        193,
+        168,
+        116,
+        164,
+        169
+      ],
+      "accounts": [
+        {
+          "name": "lottery_account",
+          "writable": true
+        },
+        {
+          "name": "ticket_account",
+          "writable": true
+        },
+        {
+          "name": "global_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103,
+                  95,
+                  118,
+                  50
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "user_token_account",
+          "writable": true
+        },
+        {
+          "name": "lottery_token_account",
+          "docs": [
+            "Lottery vault — ATA owned by the lottery PDA. Validated in handler."
+          ],
+          "writable": true
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "claim_prize",
+      "discriminator": [
+        157,
+        233,
+        139,
+        121,
+        246,
+        62,
+        234,
+        235
+      ],
+      "accounts": [
+        {
+          "name": "lottery_account",
+          "writable": true
+        },
+        {
+          "name": "ticket_account",
+          "writable": true
+        },
+        {
+          "name": "global_config"
+        },
+        {
+          "name": "winner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "lottery_token_account",
+          "writable": true
+        },
+        {
+          "name": "winner_token_account",
+          "writable": true
+        },
+        {
+          "name": "treasury_token_account",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "create_lottery",
+      "discriminator": [
+        242,
+        165,
+        247,
+        119,
+        17,
+        203,
+        21,
+        42
+      ],
+      "accounts": [
+        {
+          "name": "lottery_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  116,
+                  116,
+                  101,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "creator"
+              },
+              {
+                "kind": "arg",
+                "path": "nonce"
+              }
+            ]
+          }
+        },
+        {
+          "name": "global_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103,
+                  95,
+                  118,
+                  50
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "lottery_type_enum",
+          "type": {
+            "defined": {
+              "name": "LotteryType"
+            }
+          }
+        },
+        {
+          "name": "ticket_price",
+          "type": "u64"
+        },
+        {
+          "name": "draw_time",
+          "type": "i64"
+        },
+        {
+          "name": "target_prize_pool",
+          "type": "u64"
+        },
+        {
+          "name": "nonce",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "emergency_pause_toggle",
+      "docs": [
+        "Emergency pause/unpause functionality",
+        "Only callable by the global admin"
+      ],
+      "discriminator": [
+        220,
+        46,
+        66,
+        22,
+        101,
+        59,
+        86,
+        191
+      ],
+      "accounts": [
+        {
+          "name": "global_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103,
+                  95,
+                  118,
+                  50
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "Only the global admin can pause/unpause"
+          ],
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "pause",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "force_cancel_lottery",
+      "docs": [
+        "Force cancel a lottery in emergency situations",
+        "Only callable by the global admin"
+      ],
+      "discriminator": [
+        222,
+        92,
+        8,
+        94,
+        19,
+        0,
+        68,
+        68
+      ],
+      "accounts": [
+        {
+          "name": "lottery",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  116,
+                  116,
+                  101,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery.authority",
+                "account": "LotteryAccount"
+              },
+              {
+                "kind": "account",
+                "path": "lottery.nonce",
+                "account": "LotteryAccount"
+              }
+            ]
+          }
+        },
+        {
+          "name": "global_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103,
+                  95,
+                  118,
+                  50
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "Only the global admin can force cancel lotteries"
+          ],
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "reason",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "initialize",
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [
+        {
+          "name": "global_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103,
+                  95,
+                  118,
+                  50
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "treasury_token_account",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "select_winner",
+      "discriminator": [
+        119,
+        66,
+        44,
+        236,
+        79,
+        158,
+        82,
+        51
+      ],
+      "accounts": [
+        {
+          "name": "lottery_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  116,
+                  116,
+                  101,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery_account.authority",
+                "account": "LotteryAccount"
+              },
+              {
+                "kind": "account",
+                "path": "lottery_account.nonce",
+                "account": "LotteryAccount"
+              }
+            ]
+          }
+        },
+        {
+          "name": "winning_ticket_account",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "settle_randomness",
+      "discriminator": [
+        209,
+        111,
+        84,
+        239,
+        14,
+        4,
+        26,
+        251
+      ],
+      "accounts": [
+        {
+          "name": "lottery_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  116,
+                  116,
+                  101,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery_account.authority",
+                "account": "LotteryAccount"
+              },
+              {
+                "kind": "account",
+                "path": "lottery_account.nonce",
+                "account": "LotteryAccount"
+              }
+            ]
+          }
+        },
+        {
+          "name": "recent_blockhashes",
+          "docs": [
+            "Recent blockhashes sysvar for entropy"
+          ],
+          "address": "SysvarS1otHashes111111111111111111111111111"
+        },
+        {
+          "name": "clock",
+          "docs": [
+            "Clock sysvar for timing entropy"
+          ],
+          "address": "SysvarC1ock11111111111111111111111111111111"
+        },
+        {
+          "name": "caller",
+          "docs": [
+            "Caller who triggers the settlement (provides additional entropy)"
+          ],
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "transition_state",
+      "discriminator": [
+        52,
+        205,
+        208,
+        34,
+        155,
+        130,
+        12,
+        18
+      ],
+      "accounts": [
+        {
+          "name": "lottery_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  116,
+                  116,
+                  101,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery_account.authority",
+                "account": "LotteryAccount"
+              },
+              {
+                "kind": "account",
+                "path": "lottery_account.nonce",
+                "account": "LotteryAccount"
+              }
+            ]
+          }
+        },
+        {
+          "name": "global_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103,
+                  95,
+                  118,
+                  50
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "next_state",
+          "type": {
+            "defined": {
+              "name": "LotteryState"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "update_config",
+      "discriminator": [
+        29,
+        158,
+        252,
+        191,
+        10,
+        83,
+        219,
+        99
+      ],
+      "accounts": [
+        {
+          "name": "global_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103,
+                  95,
+                  118,
+                  50
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "new_fee_percentage",
+          "type": {
+            "option": "u16"
+          }
+        },
+        {
+          "name": "new_admin",
+          "type": {
+            "option": "pubkey"
+          }
+        },
+        {
+          "name": "is_paused",
+          "type": {
+            "option": "bool"
+          }
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "GlobalConfig",
+      "discriminator": [
+        149,
+        8,
+        156,
+        202,
+        160,
+        252,
+        176,
+        217
+      ]
+    },
+    {
+      "name": "LotteryAccount",
+      "discriminator": [
+        1,
+        165,
+        125,
+        59,
+        215,
+        12,
+        246,
+        7
+      ]
+    },
+    {
+      "name": "TicketAccount",
+      "discriminator": [
+        231,
+        93,
+        13,
+        18,
+        239,
+        66,
+        21,
+        45
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "ConfigUpdated",
+      "discriminator": [
+        40,
+        241,
+        230,
+        122,
+        11,
+        19,
+        198,
+        194
+      ]
+    },
+    {
+      "name": "DrawingStarted",
+      "discriminator": [
+        105,
+        108,
+        34,
+        253,
+        27,
+        204,
+        35,
+        5
+      ]
+    },
+    {
+      "name": "EmergencyPause",
+      "discriminator": [
+        105,
+        91,
+        187,
+        159,
+        198,
+        176,
+        189,
+        87
+      ]
+    },
+    {
+      "name": "LotteryCancelled",
+      "discriminator": [
+        106,
+        48,
+        195,
+        83,
+        38,
+        145,
+        61,
+        131
+      ]
+    },
+    {
+      "name": "LotteryCreated",
+      "discriminator": [
+        162,
+        18,
+        70,
+        148,
+        241,
+        124,
+        57,
+        74
+      ]
+    },
+    {
+      "name": "LotteryStateChanged",
+      "discriminator": [
+        116,
+        62,
+        184,
+        135,
+        124,
+        90,
+        153,
+        26
+      ]
+    },
+    {
+      "name": "LotteryWinnerDetermined",
+      "discriminator": [
+        110,
+        172,
+        60,
+        137,
+        146,
+        76,
+        59,
+        123
+      ]
+    },
+    {
+      "name": "PrizeClaimed",
+      "discriminator": [
+        213,
+        150,
+        192,
+        76,
+        199,
+        33,
+        212,
+        38
+      ]
+    },
+    {
+      "name": "RandomnessConsumed",
+      "discriminator": [
+        90,
+        36,
+        18,
+        118,
+        153,
+        234,
+        93,
+        144
+      ]
+    },
+    {
+      "name": "RandomnessRequested",
+      "discriminator": [
+        10,
+        64,
+        183,
+        29,
+        104,
+        63,
+        90,
+        149
+      ]
+    },
+    {
+      "name": "RandomnessSettled",
+      "discriminator": [
+        219,
+        235,
+        45,
+        239,
+        116,
+        19,
+        92,
+        74
+      ]
+    },
+    {
+      "name": "TicketPurchased",
+      "discriminator": [
+        108,
+        59,
+        246,
+        95,
+        84,
+        145,
+        13,
+        71
+      ]
+    },
+    {
+      "name": "TicketRefunded",
+      "discriminator": [
+        46,
+        173,
+        213,
+        43,
+        145,
+        205,
+        132,
+        218
+      ]
+    },
+    {
+      "name": "TreasuryWithdrawal",
+      "discriminator": [
+        244,
+        117,
+        175,
+        46,
+        187,
+        109,
+        20,
+        16
+      ]
+    },
+    {
+      "name": "VrfClientInitialized",
+      "discriminator": [
+        0,
+        118,
+        216,
+        155,
+        30,
+        123,
+        193,
+        166
+      ]
+    },
+    {
+      "name": "WinnerSelected",
+      "discriminator": [
+        245,
+        110,
+        152,
+        173,
+        193,
+        48,
+        133,
+        5
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "UnsupportedLotteryType",
+      "msg": "Lottery type not supported"
+    },
+    {
+      "code": 6001,
+      "name": "InvalidTicketPrice",
+      "msg": "Invalid ticket price"
+    },
+    {
+      "code": 6002,
+      "name": "InvalidPrizePool",
+      "msg": "Invalid prize pool"
+    },
+    {
+      "code": 6003,
+      "name": "InvalidDrawTime",
+      "msg": "Lottery draw time invalid"
+    },
+    {
+      "code": 6004,
+      "name": "InvalidTicketAmount",
+      "msg": "Ticket purchase amount invalid"
+    },
+    {
+      "code": 6005,
+      "name": "TicketPurchaseLimitReached",
+      "msg": "Ticket purchase limit reached"
+    },
+    {
+      "code": 6006,
+      "name": "LotteryNotOpen",
+      "msg": "Lottery is not open"
+    },
+    {
+      "code": 6007,
+      "name": "LotteryDrawing",
+      "msg": "Lottery is drawing"
+    },
+    {
+      "code": 6008,
+      "name": "LotteryCompleted",
+      "msg": "Lottery is completed"
+    },
+    {
+      "code": 6009,
+      "name": "LotteryExpired",
+      "msg": "Lottery is expired"
+    },
+    {
+      "code": 6010,
+      "name": "InvalidLotteryState",
+      "msg": "Invalid lottery state"
+    },
+    {
+      "code": 6011,
+      "name": "InvalidAccountOwner",
+      "msg": "Invalid account owner"
+    },
+    {
+      "code": 6012,
+      "name": "InvalidInstructionInput",
+      "msg": "Invalid instruction input"
+    },
+    {
+      "code": 6013,
+      "name": "SafeMathError",
+      "msg": "Safe Math Error"
+    },
+    {
+      "code": 6014,
+      "name": "PrizeClaimTimeExpired",
+      "msg": "Prize claim time expired"
+    },
+    {
+      "code": 6015,
+      "name": "InvalidPrizeTier",
+      "msg": "Invalid prize tier"
+    },
+    {
+      "code": 6016,
+      "name": "TreasuryWithdrawalTimeLockNotReached",
+      "msg": "Treasury withdrawal time lock not yet reached"
+    },
+    {
+      "code": 6017,
+      "name": "InvalidTreasuryMultisig",
+      "msg": "Invalid treasury multisig"
+    },
+    {
+      "code": 6018,
+      "name": "TokenTransferFailed",
+      "msg": "Token transfer failed"
+    },
+    {
+      "code": 6019,
+      "name": "InvalidTokenAccount",
+      "msg": "Invalid token account"
+    },
+    {
+      "code": 6020,
+      "name": "InvalidTokenMint",
+      "msg": "Invalid token mint"
+    },
+    {
+      "code": 6021,
+      "name": "OraclePriceFeedError",
+      "msg": "Oracle price feed error"
+    },
+    {
+      "code": 6022,
+      "name": "RandomnessGenerationFailed",
+      "msg": "Randomness generation failed"
+    },
+    {
+      "code": 6023,
+      "name": "UnauthorizedAccess",
+      "msg": "Unauthorized access"
+    },
+    {
+      "code": 6024,
+      "name": "InvalidStateTransition",
+      "msg": "Invalid state transition"
+    },
+    {
+      "code": 6025,
+      "name": "InvalidCancellation",
+      "msg": "Lottery cannot be cancelled in current state"
+    },
+    {
+      "code": 6026,
+      "name": "AdminRequired",
+      "msg": "Only admin can perform this action"
+    },
+    {
+      "code": 6027,
+      "name": "LotteryCancelled",
+      "msg": "Lottery is cancelled"
+    },
+    {
+      "code": 6028,
+      "name": "LotteryPaused",
+      "msg": "The lottery system is currently paused by admin"
+    },
+    {
+      "code": 6029,
+      "name": "LotteryNotOpenForTicketPurchases",
+      "msg": "Lottery is not open for ticket purchases."
+    },
+    {
+      "code": 6030,
+      "name": "LotteryAlreadyClaimed",
+      "msg": "Lottery prize has already been claimed."
+    },
+    {
+      "code": 6031,
+      "name": "PDADerivationError",
+      "msg": "Failed to derive PDA."
+    },
+    {
+      "code": 6032,
+      "name": "InvalidWinningTicket",
+      "msg": "Provided ticket PDA does not match the winning ticket stored in the lottery."
+    },
+    {
+      "code": 6033,
+      "name": "TicketAlreadyClaimed",
+      "msg": "The provided ticket has already been claimed or refunded."
+    },
+    {
+      "code": 6034,
+      "name": "InvalidStateForRefund",
+      "msg": "Lottery is not in a state where refunds can be claimed (must be Cancelled or Expired)."
+    },
+    {
+      "code": 6035,
+      "name": "InvalidInput",
+      "msg": "The input parameters are invalid."
+    },
+    {
+      "code": 6036,
+      "name": "TicketSaleEnded",
+      "msg": "The ticket sale has ended."
+    },
+    {
+      "code": 6037,
+      "name": "LotteryAlreadyDrawn",
+      "msg": "The lottery has already been drawn."
+    },
+    {
+      "code": 6038,
+      "name": "NoTickets",
+      "msg": "There are no tickets in this lottery."
+    },
+    {
+      "code": 6039,
+      "name": "InsufficientTicketsSold",
+      "msg": "Insufficient tickets sold to proceed with the draw."
+    },
+    {
+      "code": 6040,
+      "name": "LotteryNotDrawn",
+      "msg": "The lottery has not been drawn yet."
+    },
+    {
+      "code": 6041,
+      "name": "TicketNotEligibleForRefund",
+      "msg": "The specified ticket is not eligible for refund."
+    },
+    {
+      "code": 6042,
+      "name": "LotteryNotExpired",
+      "msg": "The lottery has not expired yet."
+    },
+    {
+      "code": 6043,
+      "name": "InvalidVrfAccount",
+      "msg": "VRF account is invalid."
+    },
+    {
+      "code": 6044,
+      "name": "InsufficientFunds",
+      "msg": "Insufficient funds for this operation."
+    },
+    {
+      "code": 6045,
+      "name": "ArithmeticOverflow",
+      "msg": "Arithmetic overflow error."
+    },
+    {
+      "code": 6046,
+      "name": "TicketNotForThisLottery",
+      "msg": "Ticket does not belong to this lottery."
+    },
+    {
+      "code": 6047,
+      "name": "NoWinnerSelected",
+      "msg": "No winner has been selected yet."
+    },
+    {
+      "code": 6048,
+      "name": "EmptyPrizePool",
+      "msg": "The prize pool is empty."
+    },
+    {
+      "code": 6049,
+      "name": "InsufficientPrizeFunds",
+      "msg": "Insufficient funds in the prize pool."
+    },
+    {
+      "code": 6050,
+      "name": "InvalidMint",
+      "msg": "Invalid mint address."
+    },
+    {
+      "code": 6051,
+      "name": "RandomnessAlreadyFulfilled",
+      "msg": "Randomness has already been fulfilled."
+    },
+    {
+      "code": 6052,
+      "name": "VrfRequestKeyNotSet",
+      "msg": "VRF request key is not set."
+    },
+    {
+      "code": 6053,
+      "name": "VrfAccountMismatch",
+      "msg": "VRF account mismatch."
+    },
+    {
+      "code": 6054,
+      "name": "RandomnessNotFulfilled",
+      "msg": "Randomness is not fulfilled."
+    },
+    {
+      "code": 6055,
+      "name": "RandomnessNotAvailable",
+      "msg": "Randomness is not available."
+    },
+    {
+      "code": 6056,
+      "name": "WinnerAlreadySelected",
+      "msg": "Winner has already been selected."
+    },
+    {
+      "code": 6057,
+      "name": "NoTicketsSold",
+      "msg": "No tickets were sold."
+    },
+    {
+      "code": 6058,
+      "name": "DrawTimeNotReached",
+      "msg": "Draw time has not been reached yet."
+    },
+    {
+      "code": 6059,
+      "name": "VrfClientNotSet",
+      "msg": "VRF client is not set."
+    },
+    {
+      "code": 6060,
+      "name": "VrfCallbackNotTimedOut",
+      "msg": "VRF callback has not timed out yet."
+    },
+    {
+      "code": 6061,
+      "name": "InvalidFeePercentage",
+      "msg": "Invalid fee percentage. Must be between 0 and 1000 basis points (10%)."
+    },
+    {
+      "code": 6062,
+      "name": "InvalidAuthority",
+      "msg": "Invalid authority for this operation."
+    },
+    {
+      "code": 6063,
+      "name": "NoConfigChanges",
+      "msg": "No configuration changes provided."
+    },
+    {
+      "code": 6064,
+      "name": "TooEarly",
+      "msg": "Too early to perform this action."
+    },
+    {
+      "code": 6065,
+      "name": "InvalidClaim",
+      "msg": "Invalid claim: ticket already claimed, not owned by signer, or not associated with lottery."
+    },
+    {
+      "code": 6066,
+      "name": "InvalidAccount",
+      "msg": "Invalid account provided."
+    }
+  ],
+  "types": [
+    {
+      "name": "ConfigUpdated",
+      "docs": [
+        "Event emitted when global configuration is updated.",
+        "- Purpose: Records changes to system configuration for transparency.",
+        "- Context: Triggered by the `update_config` instruction when admin modifies settings."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "old_fee_percentage",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "new_fee_percentage",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "old_admin",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "new_admin",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "old_paused_state",
+            "type": {
+              "option": "bool"
+            }
+          },
+          {
+            "name": "new_paused_state",
+            "type": {
+              "option": "bool"
+            }
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DrawingStarted",
+      "docs": [
+        "Event emitted when a lottery drawing begins.",
+        "- Purpose: Signals the start of the lottery draw process.",
+        "- Context: Triggered when a lottery transitions to the Drawing state."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lottery_id",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "total_tickets",
+            "type": "u64"
+          },
+          {
+            "name": "prize_pool",
+            "type": "u64"
+          },
+          {
+            "name": "vrf_client",
+            "type": {
+              "option": "pubkey"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "EmergencyPause",
+      "docs": [
+        "Event emitted when emergency pause is toggled.",
+        "- Purpose: Records emergency pause state changes for transparency and audit.",
+        "- Context: Triggered by the `emergency_pause_toggle` instruction when admin changes system state."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "previous_state",
+            "type": "bool"
+          },
+          {
+            "name": "new_state",
+            "type": "bool"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "GlobalConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury_fee_percentage",
+            "type": "u16"
+          },
+          {
+            "name": "usdc_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury_token_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "is_paused",
+            "type": "bool"
+          },
+          {
+            "name": "min_ticket_price",
+            "type": "u64"
+          },
+          {
+            "name": "max_ticket_price",
+            "type": "u64"
+          },
+          {
+            "name": "min_draw_duration",
+            "type": "i64"
+          },
+          {
+            "name": "max_draw_duration",
+            "type": "i64"
+          },
+          {
+            "name": "max_tickets_per_lottery",
+            "type": "u64"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "updated_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LotteryAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lottery_type",
+            "type": {
+              "defined": {
+                "name": "LotteryType"
+              }
+            }
+          },
+          {
+            "name": "ticket_price",
+            "type": "u64"
+          },
+          {
+            "name": "draw_time",
+            "type": "i64"
+          },
+          {
+            "name": "prize_pool",
+            "type": "u64"
+          },
+          {
+            "name": "total_tickets",
+            "type": "u64"
+          },
+          {
+            "name": "winning_ticket",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "state",
+            "type": {
+              "defined": {
+                "name": "LotteryState"
+              }
+            }
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "last_ticket_id",
+            "type": "u64"
+          },
+          {
+            "name": "vrf_client",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "vrf_request_key",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "vrf_randomness",
+            "type": {
+              "option": {
+                "array": [
+                  "u8",
+                  32
+                ]
+              }
+            }
+          },
+          {
+            "name": "randomness_fulfilled",
+            "type": "bool"
+          },
+          {
+            "name": "flags",
+            "type": "u8"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "completed_at",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "nonce",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LotteryCancelled",
+      "docs": [
+        "Event emitted when a lottery is cancelled by authority.",
+        "- Purpose: Records forced cancellation of lotteries in emergency situations.",
+        "- Context: Triggered by the `force_cancel_lottery` instruction when admin cancels a lottery."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lottery_id",
+            "type": "pubkey"
+          },
+          {
+            "name": "reason",
+            "type": "string"
+          },
+          {
+            "name": "total_refunds",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LotteryCreated",
+      "docs": [
+        "Event emitted when a new lottery is created.",
+        "- Purpose: Signals the initialization of a new lottery with its configuration details.",
+        "- Context: Triggered by the `create_lottery` instruction after successfully setting up a lottery account."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lottery_id",
+            "type": "pubkey"
+          },
+          {
+            "name": "lottery_type",
+            "type": "string"
+          },
+          {
+            "name": "ticket_price",
+            "type": "u64"
+          },
+          {
+            "name": "draw_time",
+            "type": "i64"
+          },
+          {
+            "name": "target_prize_pool",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LotteryState",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Created"
+          },
+          {
+            "name": "Open"
+          },
+          {
+            "name": "Locked"
+          },
+          {
+            "name": "Drawing"
+          },
+          {
+            "name": "AwaitingRandomness"
+          },
+          {
+            "name": "Completed"
+          },
+          {
+            "name": "Expired"
+          },
+          {
+            "name": "Cancelled"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LotteryStateChanged",
+      "docs": [
+        "Event emitted when a lottery's state changes.",
+        "- Purpose: Tracks the lifecycle progression of a lottery through its various states (e.g., Created, Open, AwaitingRandomness, Completed, Expired).",
+        "- Context: Triggered by instructions like `transition_state` or `settle_randomness` when the lottery state is updated."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lottery_id",
+            "type": "pubkey"
+          },
+          {
+            "name": "previous_state",
+            "type": {
+              "defined": {
+                "name": "LotteryState"
+              }
+            }
+          },
+          {
+            "name": "new_state",
+            "type": {
+              "defined": {
+                "name": "LotteryState"
+              }
+            }
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "total_tickets_sold",
+            "type": "u64"
+          },
+          {
+            "name": "current_prize_pool",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LotteryType",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Daily"
+          },
+          {
+            "name": "Weekly"
+          },
+          {
+            "name": "Monthly"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LotteryWinnerDetermined",
+      "docs": [
+        "Event emitted when a winner is determined for a lottery.",
+        "- Purpose: Announces the winning ticket ID and randomness value used.",
+        "- Context: Triggered by the `select_winner` instruction after randomness is processed."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lottery_id",
+            "type": "pubkey"
+          },
+          {
+            "name": "previous_state",
+            "type": {
+              "defined": {
+                "name": "LotteryState"
+              }
+            }
+          },
+          {
+            "name": "new_state",
+            "type": {
+              "defined": {
+                "name": "LotteryState"
+              }
+            }
+          },
+          {
+            "name": "winner",
+            "type": "pubkey"
+          },
+          {
+            "name": "randomness",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PrizeClaimed",
+      "docs": [
+        "Event emitted when a prize is claimed by the winner.",
+        "- Purpose: Records the distribution of the prize pool, including any treasury fees deducted, to the winner.",
+        "- Context: Triggered by the `claim_prize` instruction after successfully transferring funds to the winner's token account."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lottery_id",
+            "type": "pubkey"
+          },
+          {
+            "name": "ticket_id",
+            "type": "u64"
+          },
+          {
+            "name": "winner",
+            "type": "pubkey"
+          },
+          {
+            "name": "prize_pool",
+            "type": "u64"
+          },
+          {
+            "name": "treasury_fee",
+            "type": "u64"
+          },
+          {
+            "name": "winner_payout",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RandomnessConsumed",
+      "docs": [
+        "Event emitted when randomness is consumed from Switchboard.",
+        "- Purpose: Indicates that VRF randomness has been received and processed.",
+        "- Context: Triggered by the `consume_randomness` instruction after verifying and extracting the randomness."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lottery_id",
+            "type": "pubkey"
+          },
+          {
+            "name": "vrf_client",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "dice_result",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RandomnessRequested",
+      "docs": [
+        "Event emitted when randomness is requested from Switchboard.",
+        "- Purpose: Records when a lottery initiates a request for randomness from Switchboard VRF.",
+        "- Context: Triggered by the `request_randomness` instruction when making a CPI call to Switchboard."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lottery_id",
+            "type": "pubkey"
+          },
+          {
+            "name": "vrf_client",
+            "type": "pubkey"
+          },
+          {
+            "name": "vrf_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RandomnessSettled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lottery_id",
+            "type": "pubkey"
+          },
+          {
+            "name": "randomness",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "block_height",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TicketAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lottery",
+            "type": "pubkey"
+          },
+          {
+            "name": "id",
+            "type": "u64"
+          },
+          {
+            "name": "buyer",
+            "type": "pubkey"
+          },
+          {
+            "name": "is_claimed",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TicketPurchased",
+      "docs": [
+        "Event emitted when a ticket is purchased for a lottery.",
+        "- Purpose: Records the purchase details, linking a buyer to a specific ticket in a lottery.",
+        "- Context: Triggered by the `buy_ticket` instruction upon successful token transfer and ticket account creation."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lottery_id",
+            "type": "pubkey"
+          },
+          {
+            "name": "ticket_id",
+            "type": "u64"
+          },
+          {
+            "name": "buyer",
+            "type": "pubkey"
+          },
+          {
+            "name": "number_of_tickets",
+            "type": "u64"
+          },
+          {
+            "name": "total_cost",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TicketRefunded",
+      "docs": [
+        "Event emitted when a ticket is refunded.",
+        "- Purpose: Indicates a refund has been issued for a ticket, typically when a lottery expires without a draw.",
+        "- Context: Triggered by the `claim_refund` instruction after returning the ticket cost to the buyer."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lottery_id",
+            "type": "pubkey"
+          },
+          {
+            "name": "ticket_id",
+            "type": "u64"
+          },
+          {
+            "name": "buyer",
+            "type": "pubkey"
+          },
+          {
+            "name": "refund_amount",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TreasuryWithdrawal",
+      "docs": [
+        "Event emitted when funds are withdrawn from the treasury.",
+        "- Purpose: Records treasury withdrawals for transparency and audit purposes.",
+        "- Context: Triggered by treasury withdrawal instructions when funds are transferred out."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "treasury",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "destination",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "is_emergency",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VrfClientInitialized",
+      "docs": [
+        "Event emitted when a VRF client is initialized for a lottery.",
+        "- Purpose: Signals the creation of a new VRF client for a specific lottery.",
+        "- Context: Triggered by the `init_vrf_client` instruction when setting up the VRF client state account."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lottery_id",
+            "type": "pubkey"
+          },
+          {
+            "name": "vrf_client",
+            "type": "pubkey"
+          },
+          {
+            "name": "vrf_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "WinnerSelected",
+      "docs": [
+        "Event emitted when a winner is selected for a lottery.",
+        "- Purpose: Announces the winning ticket and the randomness value used to determine the winner, ensuring transparency.",
+        "- Context: Triggered by the `settle_randomness` instruction after verifying the oracle-provided randomness and calculating the winning ticket ID."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lottery_id",
+            "type": "pubkey"
+          },
+          {
+            "name": "winning_ticket_id",
+            "type": "u64"
+          },
+          {
+            "name": "winning_ticket_pda",
+            "type": "pubkey"
+          },
+          {
+            "name": "randomness_value",
+            "type": "string"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    }
+  ]
+}
