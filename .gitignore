@@ -13,7 +13,9 @@ test-ledger
 *.pem
 
 # Build artifacts
-Cargo.lock
+# NOTE: Cargo.lock is intentionally committed — Solana SBF builds require a
+# pinned dependency tree (transitive crates like blake3/block-buffer must not
+# float to editions the platform-tools cargo can't parse).
 *.log
 *.tsbuildinfo
 *.cache
@@ -34,3 +36,4 @@ Cargo.lock
 # Accidentally created frontend build artifacts
 .next/
 out/
+.DS_Store
