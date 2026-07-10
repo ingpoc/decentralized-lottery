@@ -14,7 +14,7 @@
     "clean": "export PATH=\"/Users/gurusharan/.cargo/bin:/Users/gurusharan/.local/share/solana/install/active_release/bin:$PATH\" && anchor clean",
     "automation": "node automation-service.js",
     "automation:dev": "nodemon automation-service.js",
-    "keeper": "node basic-keeper.js",
+    "keeper": "ts-node scripts/keeper.ts",
     "keeper:dev": "nodemon simple-keeper.js",
     "keeper:full": "node blockchain-native-keeper.js",
     "test:automation": "node test-simple-automation.js",

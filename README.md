@@ -1,93 +1,80 @@
 # Decentralized Lottery
 
-A Solana-based decentralized lottery program with Switchboard VRF integration for provably fair randomness.
+A Solana/Anchor decentralized lottery with USDC prize pools, deterministic randomness, and a Next.js frontend.
 
-## Features
+## Architecture
 
-- ✅ **Switchboard VRF Integration**: Production-ready verifiable randomness
-- ✅ **Multi-Lottery Support**: Daily, Weekly, Monthly lottery types
-- ✅ **USDC Prize Pools**: Stablecoin-based transactions
-- ✅ **Emergency Controls**: Admin pause and cancel functionality
-- ✅ **Comprehensive Events**: Full audit trail
-- ✅ **Fallback Randomness**: Secure fallback for development/testing
+- **On-chain program** (`programs/decentralized-lottery/`): Anchor 0.31.1, Solana 2.1.x
+- **Frontend** (`frontend/`): Next.js 16 + Tailwind + Phantom wallet adapter
+- **Keeper** (`scripts/keeper.ts`): Automated draw lifecycle service
 
-## Switchboard VRF Implementation
+## Lottery lifecycle
 
-The lottery program now includes full Switchboard VRF integration for production-ready, provably fair randomness:
+```
+Created → Open → Locked → Drawing → AwaitingRandomness → Completed
+                                                        → Expired (no tickets)
+              ↘ Cancelled (admin) ↗
+```
 
-### VRF Instructions
+1. Admin creates a lottery (type, ticket price, draw time)
+2. Lottery opens — users buy tickets with USDC
+3. After draw time, keeper locks → draws → settles randomness → selects winner
+4. Winner claims prize (2.5% treasury fee deducted)
 
-1. **Initialize Lottery VRF** - Set up VRF client for a lottery
-2. **Request Lottery Randomness** - Request randomness from Switchboard
-3. **Consume Lottery Randomness** - Process VRF results and select winner
+## Quick start (localnet)
 
-### Lottery Flow with VRF
+```bash
+# Build the program
+anchor build
 
-1. **Create Lottery** → Admin creates lottery with parameters
-2. **Initialize VRF** → Set up Switchboard VRF client
-3. **Open for Tickets** → Users can buy tickets
-4. **Lock Lottery** → Stop ticket sales
-5. **Request Randomness** → Call Switchboard VRF
-6. **Consume Randomness** → Process VRF result
-7. **Select Winner** → Determine winning ticket
-8. **Claim Prize** → Winner claims USDC prize
+# Run the full lifecycle test
+anchor test
+```
 
-## Build and Deploy Steps
+## Deploy to devnet
 
-1. **Build the program**:
-   ```bash
-   cd decentralized-lottery
-   npm run build:full
-   ```
+```bash
+# 1. Fund admin wallet with devnet SOL (need ~3 SOL)
+solana airdrop 5 --url devnet  # may be rate-limited
 
-2. **Deploy the program**:
-   ```bash
-   npm run deploy:devnet  # or deploy:mainnet
-   ```
+# 2. Deploy the program
+anchor deploy --provider.cluster devnet
 
-3. **Update the USDC mint address** (if needed):
-   ```bash
-   npm run update-config
-   ```
+# 3. Initialize config + create first lottery
+npm run setup:devnet
 
-## Important Notes
+# 4. Update frontend env with the printed values
+#    → edit frontend/.env.local
 
-- The `switchboard-solana` dependency is now enabled in the workspace
-- VRF integration requires Switchboard oracle setup and payment
-- Fallback randomness is available for development/testing
-- All VRF operations require admin authorization
+# 5. Run the keeper (draws lotteries automatically)
+npm run keeper
 
-## Troubleshooting
+# 6. Start the frontend
+cd frontend && npm run dev
+```
 
-If you encounter any issues:
+## Program instructions
 
-1. Make sure your wallet has the correct permissions (must be the admin)
-2. Ensure you have enough SOL for transaction fees and VRF payments
-3. Check that the Switchboard oracle queue is properly configured
-4. Verify that your wallet has a token account for the USDC mint
+| Instruction | Who | Description |
+|---|---|---|
+| `initialize` | Admin | Create global config (fee, USDC mint, treasury) |
+| `create_lottery` | Admin | Create a new lottery (daily/weekly/monthly) |
+| `transition_state` | Admin/Keeper | Advance lottery through its lifecycle |
+| `buy_ticket` | User | Buy a ticket — USDC transferred to lottery vault PDA |
+| `settle_randomness` | Anyone | Generate randomness (fallback: on-chain entropy) |
+| `select_winner` | Anyone | Determine winning ticket from randomness |
+| `claim_prize` | Winner | Claim USDC payout (treasury fee split) |
+| `update_config` | Admin | Update fee, admin, or pause state |
+| `emergency_pause_toggle` | Admin | Pause/unpause all lottery operations |
+| `force_cancel_lottery` | Admin | Emergency cancel a lottery |
 
-## Program Authority/Owner:
-Program Owner: BPFLoaderUpgradeab1e111111111111111111111111 (Solana's BPF Loader)
-Program Authority: 7Q3UBDfjZgNJNCQBdJrji33f2FvtJ1z3DErcAV6hFsf4 (Your wallet that deployed it)
+## Key PDAs
 
-Treasury Configuration:
-Let me check what treasury accounts are configured in the system:
-Perfect! Here are the key IDs for your lottery system:
-Owner/Authority IDs:
-Program Authority: 7Q3UBDfjZgNJNCQBdJrji33f2FvtJ1z3DErcAV6hFsf4 (Your deployer wallet)
-Admin Wallet: 7Q3UBDfjZgNJNCQBdJrji33f2FvtJ1z3DErcAV6hFsf4 (Same as authority - can manage lotteries)
-Program Owner: BPFLoaderUpgradeab1e111111111111111111111111 (Solana BPF Loader)
-
-Treasury IDs:
-Treasury Wallet: 7Q3UBDfjZgNJNCQBdJrji33f2FvtJ1z3DErcAV6hFsf4 (Defaults to admin wallet)
-USDC Mint: Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr (Devnet USDC)
-
-System Configuration:
-Global Config PDA: Derived from ["global_config_v2"] + program ID
-Treasury Fee: 2.5% (250 basis points)
-
-Network: Devnet
+- GlobalConfig: `["global_config_v2"]`
+- Lottery: `["lottery", authority, nonce]`
+- Ticket: `["ticket", lottery_key, ticket_id]`
+- Vault: ATA of USDC owned by the lottery PDA
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT
