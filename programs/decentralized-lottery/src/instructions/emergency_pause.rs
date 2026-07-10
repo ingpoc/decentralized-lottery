@@ -4,7 +4,7 @@ use crate::errors::LotteryError;
 use crate::events::{EmergencyPause, LotteryCancelled};
 use crate::state::lottery::{LotteryAccount, LotteryState};
 
-const GLOBAL_CONFIG_SEED: &[u8] = b"global_config";
+const GLOBAL_CONFIG_SEED: &[u8] = b"global_config_v2";
 
 #[derive(Accounts)]
 pub struct EmergencyPauseToggle<'info> {
@@ -52,6 +52,8 @@ pub fn emergency_pause_toggle_handler(ctx: Context<EmergencyPauseToggle>, pause:
 pub struct ForceCancelLottery<'info> {
     #[account(
         mut,
+        seeds = [b"lottery", lottery.authority.as_ref(), &lottery.nonce.to_le_bytes()],
+        bump,
         constraint = lottery.state != LotteryState::Completed @ LotteryError::LotteryCompleted,
         constraint = lottery.state != LotteryState::Cancelled @ LotteryError::LotteryCancelled
     )]

@@ -802,7 +802,6 @@ dependencies = [
  "anchor-lang",
  "anchor-spl",
  "bincode",
- "bytemuck",
  "num-derive",
  "proc-macro2",
  "thiserror 1.0.69",

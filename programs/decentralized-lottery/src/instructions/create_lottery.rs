@@ -37,17 +37,43 @@ pub fn create_lottery_handler(
     nonce: u64,
 ) -> Result<()> {
     let lottery_account = &mut ctx.accounts.lottery_account;
-    let _global_config = &ctx.accounts.global_config;
+    let global_config = &ctx.accounts.global_config;
     let clock = Clock::get()?;
+
+    // Security: enforce global pause
+    require!(!global_config.is_paused, LotteryError::LotteryPaused);
 
     // Validate inputs
     if ticket_price == 0 {
         return Err(LotteryError::InvalidTicketPrice.into());
     }
-    
+
+    // Validate ticket price within configured bounds
+    require!(
+        ticket_price >= global_config.min_ticket_price,
+        LotteryError::InvalidTicketPrice
+    );
+    require!(
+        ticket_price <= global_config.max_ticket_price,
+        LotteryError::InvalidTicketPrice
+    );
+
     if draw_time <= clock.unix_timestamp {
         return Err(LotteryError::InvalidDrawTime.into());
     }
+
+    // Validate draw duration within configured bounds
+    let draw_duration = draw_time
+        .checked_sub(clock.unix_timestamp)
+        .ok_or(LotteryError::InvalidDrawTime)?;
+    require!(
+        draw_duration >= global_config.min_draw_duration,
+        LotteryError::InvalidDrawTime
+    );
+    require!(
+        draw_duration <= global_config.max_draw_duration,
+        LotteryError::InvalidDrawTime
+    );
 
     // Initialize Lottery Account
     lottery_account.lottery_type = lottery_type_enum.clone();

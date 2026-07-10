@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Transfer, Token};
 use crate::state::lottery::{LotteryAccount, LotteryState};
 use crate::state::ticket::TicketAccount;
+use crate::state::GlobalConfig;
 use crate::errors::LotteryError;
 use crate::events::TicketPurchased;
 
@@ -19,22 +20,24 @@ pub struct BuyTicket<'info> {
     )]
     pub ticket_account: Box<Account<'info, TicketAccount>>,
 
-    /// CHECK: Global config account is validated in instruction logic
-    #[account()]
-    pub global_config: AccountInfo<'info>,
+    #[account(
+        seeds = [b"global_config_v2"],
+        bump = global_config.bump,
+    )]
+    pub global_config: Account<'info, GlobalConfig>,
 
     #[account(mut)]
     pub user: Signer<'info>,
 
-    /// CHECK: User token account is validated in instruction logic
+    /// CHECK: User USDC token account — mint/owner validated in handler
     #[account(mut)]
     pub user_token_account: AccountInfo<'info>,
 
-    /// CHECK: Lottery token account is validated in instruction logic
+    /// CHECK: Lottery vault PDA — seeds validated in handler to match claim_prize
     #[account(mut)]
     pub lottery_token_account: AccountInfo<'info>,
 
-    /// CHECK: USDC mint account is validated in instruction logic
+    /// CHECK: USDC mint — validated against global_config in handler
     pub usdc_mint: AccountInfo<'info>,
 
     pub token_program: Program<'info, Token>,
@@ -44,15 +47,36 @@ pub struct BuyTicket<'info> {
 pub fn buy_ticket_handler(ctx: Context<BuyTicket>) -> Result<()> {
     let clock = Clock::get()?;
     let current_time = clock.unix_timestamp;
-    
+
+    // Security: enforce global pause
+    require!(!ctx.accounts.global_config.is_paused, LotteryError::LotteryPaused);
+
     // Check timing and state
     require!(ctx.accounts.lottery_account.state == LotteryState::Open, LotteryError::LotteryNotOpen);
     require!(current_time < ctx.accounts.lottery_account.draw_time, LotteryError::LotteryNotOpen);
 
+    // Validate USDC mint matches global config
+    require!(
+        ctx.accounts.usdc_mint.key() == ctx.accounts.global_config.usdc_mint,
+        LotteryError::InvalidMint
+    );
+
+    // Validate lottery vault is the expected PDA [b"lottery_vault", lottery_key]
+    // This MUST match the vault claim_prize derives and signs CPI from.
+    let lottery_key = ctx.accounts.lottery_account.key();
+    let (expected_vault, _) = Pubkey::find_program_address(
+        &[b"lottery_vault", lottery_key.as_ref()],
+        ctx.program_id,
+    );
+    require!(
+        ctx.accounts.lottery_token_account.key() == expected_vault,
+        LotteryError::InvalidAccount
+    );
+
     let ticket_id = ctx.accounts.lottery_account.last_ticket_id.checked_add(1)
         .ok_or(LotteryError::ArithmeticOverflow)?;
     let ticket_price = ctx.accounts.lottery_account.ticket_price;
-    
+
     // Update lottery state
     ctx.accounts.lottery_account.last_ticket_id = ticket_id;
     ctx.accounts.lottery_account.total_tickets = ctx.accounts.lottery_account.total_tickets
@@ -68,8 +92,8 @@ pub fn buy_ticket_handler(ctx: Context<BuyTicket>) -> Result<()> {
     ctx.accounts.ticket_account.id = ticket_id;
     ctx.accounts.ticket_account.is_claimed = false;
     ctx.accounts.ticket_account.bump = ctx.bumps.ticket_account;
-    
-    // Transfer tokens
+
+    // Transfer USDC from user to lottery vault
     let transfer_ctx = CpiContext::new(
         ctx.accounts.token_program.to_account_info(),
         Transfer {

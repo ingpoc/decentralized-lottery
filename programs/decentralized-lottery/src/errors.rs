@@ -59,6 +59,8 @@ pub enum LotteryError {
     AdminRequired,
     #[msg("Lottery is cancelled")]
     LotteryCancelled,
+    #[msg("The lottery system is currently paused by admin")]
+    LotteryPaused,
     #[msg("Lottery is not open for ticket purchases.")]
     LotteryNotOpenForTicketPurchases,
     #[msg("Lottery prize has already been claimed.")]
