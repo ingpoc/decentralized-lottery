@@ -67,19 +67,29 @@ pub fn claim_prize_handler(ctx: Context<ClaimPrize>) -> Result<()> {
     require!(expected_config_key == ctx.accounts.global_config.key(), LotteryError::InvalidAccount);
 
     let lottery_key = ctx.accounts.lottery_account.key();
-    let vault_seeds = &[b"lottery_vault", lottery_key.as_ref()];
-    let (expected_vault_key, vault_bump) = Pubkey::find_program_address(vault_seeds, ctx.program_id);
-    require!(expected_vault_key == ctx.accounts.lottery_token_account.key(), LotteryError::InvalidAccount);
+
+    // Validate that lottery_token_account is an ATA owned by the lottery PDA.
+    // The lottery PDA is the authority that signs CPI transfers out of this vault.
+    let lottery_token_data = ctx.accounts.lottery_token_account.try_borrow_data()?;
+    let lottery_token: TokenAccount = TokenAccount::try_deserialize(&mut lottery_token_data.as_ref())?;
+
+    require!(
+        lottery_token.owner == lottery_key,
+        LotteryError::InvalidAccount
+    );
+    require!(lottery_token.mint == global_config.usdc_mint, LotteryError::InvalidTokenAccount);
+    require!(lottery_token.amount >= lottery_account.prize_pool, LotteryError::InsufficientFunds);
+    drop(lottery_token_data);
 
     // Validate lottery state and winning ticket
     require!(lottery_account.state == LotteryState::Completed, LotteryError::InvalidLotteryState);
-    
+
     let winning_ticket_key = lottery_account.winning_ticket.ok_or(LotteryError::NoWinnerSelected)?;
     require!(winning_ticket_key == ctx.accounts.ticket_account.key(), LotteryError::InvalidWinningTicket);
-    
+
     // Validate claim status and ownership
     require!(
-        !lottery_account.get_is_claimed() && 
+        !lottery_account.get_is_claimed() &&
         !ticket_account.is_claimed &&
         ticket_account.lottery == ctx.accounts.lottery_account.key() &&
         ticket_account.buyer == ctx.accounts.winner.key(),
@@ -95,14 +105,6 @@ pub fn claim_prize_handler(ctx: Context<ClaimPrize>) -> Result<()> {
         .ok_or(LotteryError::ArithmeticOverflow)?;
 
     let winner_payout = prize_pool.checked_sub(treasury_fee).ok_or(LotteryError::ArithmeticOverflow)?;
-
-    // Parse token accounts efficiently
-    let lottery_token_data = ctx.accounts.lottery_token_account.try_borrow_data()?;
-    let lottery_token: TokenAccount = TokenAccount::try_deserialize(&mut lottery_token_data.as_ref())?;
-    
-    require!(lottery_token.amount >= prize_pool, LotteryError::InsufficientFunds);
-    require!(lottery_token.mint == global_config.usdc_mint, LotteryError::InvalidTokenAccount);
-    drop(lottery_token_data);
 
     // Validate token accounts
     let winner_token_data = ctx.accounts.winner_token_account.try_borrow_data()?;
@@ -123,18 +125,31 @@ pub fn claim_prize_handler(ctx: Context<ClaimPrize>) -> Result<()> {
     );
     drop(treasury_token_data);
 
-    // Create PDA seeds for lottery vault authorization
-    let authority_seeds = &[b"lottery_vault", lottery_key.as_ref(), &[vault_bump]];
+    // CPI signer seeds — the lottery PDA is the owner of the vault ATA.
+    // We sign with the lottery PDA's derivation seeds so the SPL token program
+    // accepts it as the transfer authority.
+    let (lottery_key_addr, lottery_bump) = Pubkey::find_program_address(
+        &[b"lottery", lottery_account.authority.as_ref(), &lottery_account.nonce.to_le_bytes()],
+        ctx.program_id,
+    );
+    require!(lottery_key_addr == lottery_key, LotteryError::InvalidAccount);
+
+    let authority_seeds = &[
+        b"lottery".as_slice(),
+        lottery_account.authority.as_ref(),
+        &lottery_account.nonce.to_le_bytes(),
+        &[lottery_bump],
+    ];
     let signer_seeds: &[&[&[u8]]] = &[&authority_seeds[..]];
 
-    // Transfer treasury fee
+    // Transfer treasury fee — authority is the lottery PDA (owner of the vault ATA)
     if treasury_fee > 0 {
         let transfer_ctx = CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),
             Transfer {
                 from: ctx.accounts.lottery_token_account.clone(),
                 to: ctx.accounts.treasury_token_account.clone(),
-                authority: ctx.accounts.lottery_token_account.clone(),
+                authority: ctx.accounts.lottery_account.clone(),
             },
             signer_seeds,
         );
@@ -148,7 +163,7 @@ pub fn claim_prize_handler(ctx: Context<ClaimPrize>) -> Result<()> {
             Transfer {
                 from: ctx.accounts.lottery_token_account.clone(),
                 to: ctx.accounts.winner_token_account.clone(),
-                authority: ctx.accounts.lottery_token_account.clone(),
+                authority: ctx.accounts.lottery_account.clone(),
             },
             signer_seeds,
         );

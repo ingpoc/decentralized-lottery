@@ -89,8 +89,10 @@ pub fn transition_state_handler(ctx: Context<TransitionState>, next_state_param:
             });
         },
         (LotteryState::Drawing, LotteryState::AwaitingRandomness) => {
-            // This transition should only happen through VRF request, not manual
-            return Err(LotteryError::InvalidStateTransition.into());
+            // With Switchboard VRF disabled, this transition is done manually
+            // (the keeper/admin triggers it). When VRF is re-enabled, the VRF
+            // request instruction will handle this transition instead.
+            msg!("Transitioning to AwaitingRandomness (fallback mode - VRF disabled)");
         },
         (LotteryState::AwaitingRandomness, LotteryState::Completed) => {
             // This should happen through consume_randomness or settle_randomness

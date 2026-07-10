@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Transfer, Token};
+use anchor_spl::token::{self, Transfer, Token, TokenAccount};
 use crate::state::lottery::{LotteryAccount, LotteryState};
 use crate::state::ticket::TicketAccount;
 use crate::state::GlobalConfig;
@@ -33,9 +33,13 @@ pub struct BuyTicket<'info> {
     #[account(mut)]
     pub user_token_account: AccountInfo<'info>,
 
-    /// CHECK: Lottery vault PDA — seeds validated in handler to match claim_prize
-    #[account(mut)]
-    pub lottery_token_account: AccountInfo<'info>,
+    /// Lottery vault — ATA owned by the lottery PDA. Validated in handler.
+    #[account(
+        mut,
+        token::mint = global_config.usdc_mint,
+        token::authority = lottery_account,
+    )]
+    pub lottery_token_account: Account<'info, TokenAccount>,
 
     /// CHECK: USDC mint — validated against global_config in handler
     pub usdc_mint: AccountInfo<'info>,
@@ -61,17 +65,7 @@ pub fn buy_ticket_handler(ctx: Context<BuyTicket>) -> Result<()> {
         LotteryError::InvalidMint
     );
 
-    // Validate lottery vault is the expected PDA [b"lottery_vault", lottery_key]
-    // This MUST match the vault claim_prize derives and signs CPI from.
-    let lottery_key = ctx.accounts.lottery_account.key();
-    let (expected_vault, _) = Pubkey::find_program_address(
-        &[b"lottery_vault", lottery_key.as_ref()],
-        ctx.program_id,
-    );
-    require!(
-        ctx.accounts.lottery_token_account.key() == expected_vault,
-        LotteryError::InvalidAccount
-    );
+    // lottery_token_account is validated by Anchor constraints (token::mint + token::authority = lottery PDA)
 
     let ticket_id = ctx.accounts.lottery_account.last_ticket_id.checked_add(1)
         .ok_or(LotteryError::ArithmeticOverflow)?;
@@ -100,7 +94,7 @@ pub fn buy_ticket_handler(ctx: Context<BuyTicket>) -> Result<()> {
             from: ctx.accounts.user_token_account.to_account_info(),
             to: ctx.accounts.lottery_token_account.to_account_info(),
             authority: ctx.accounts.user.to_account_info(),
-        }
+        },
     );
     token::transfer(transfer_ctx, ticket_price)?;
 
