@@ -65,14 +65,14 @@ async function main() {
 
   // --- 3. Create treasury ATA (owned by globalConfig PDA) ---
   const treasuryAta = getAssociatedTokenAddressSync(
-    usdcMint, globalConfigPda, true, undefined, undefined, ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID
+    usdcMint, globalConfigPda, true, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
   );
   console.log("Treasury ATA:", treasuryAta.toBase58());
   await getOrCreateAssociatedTokenAccount(connection, admin, usdcMint, globalConfigPda, true);
 
   // --- 4. Initialize global config ---
   try {
-    const configInfo = await program.account.globalConfig.fetchNullable(globalConfigPda);
+    const configInfo = await (program.account as any).globalConfig.fetchNullable(globalConfigPda);
     if (configInfo) {
       console.log("\nGlobalConfig already initialized — skipping");
     } else {
@@ -80,7 +80,7 @@ async function main() {
     }
   } catch {
     console.log("\nInitializing global config...");
-    await program.methods
+    await (program.methods as any)
       .initialize()
       .accounts({
         globalConfig: globalConfigPda,
@@ -96,7 +96,7 @@ async function main() {
   // --- 5. Fund admin with USDC (if we created the mint) ---
   if (!existingMint) {
     const adminAta = getAssociatedTokenAddressSync(
-      usdcMint, admin.publicKey, false, undefined, undefined, ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID
+      usdcMint, admin.publicKey, false, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
     );
     await getOrCreateAssociatedTokenAccount(connection, admin, usdcMint, admin.publicKey);
     await mintTo(connection, admin, usdcMint, adminAta, admin, 10_000_000_000); // 10,000 USDC
@@ -115,7 +115,7 @@ async function main() {
 
   // Create lottery vault ATA
   const lotteryVault = getAssociatedTokenAddressSync(
-    usdcMint, lotteryPda, true, undefined, undefined, ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID
+    usdcMint, lotteryPda, true, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
   );
   await getOrCreateAssociatedTokenAccount(connection, admin, usdcMint, lotteryPda, true);
 
@@ -124,7 +124,7 @@ async function main() {
   console.log("  Ticket price: 1 USDC");
   console.log("  Draw time:", new Date(drawTime.toNumber() * 1000).toISOString());
 
-  await program.methods
+  await (program.methods as any)
     .createLottery({ daily: {} }, ticketPrice, drawTime, new BN(0), nonce)
     .accounts({
       lotteryAccount: lotteryPda,
@@ -136,7 +136,7 @@ async function main() {
   console.log("✓ Lottery created");
 
   // --- 7. Open the lottery ---
-  await program.methods
+  await (program.methods as any)
     .transitionState({ open: {} })
     .accounts({
       lotteryAccount: lotteryPda,

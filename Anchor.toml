@@ -16,6 +16,7 @@ decentralized_lottery = "4WwZRDTd7ZajA3txfqnrER6EhCNwVKGVAczcZV3Vam58"
 url = "https://api.apr.dev"
 
 [provider]
+# Default to localnet for tests; switch to devnet for deploy
 cluster = "Localnet"
 wallet = "~/.config/solana/id.json"
 

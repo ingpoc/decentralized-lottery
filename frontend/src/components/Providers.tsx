@@ -6,8 +6,6 @@ import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-wallets";
 import { RPC_URL } from "@/lib/constants";
 
-require("@solana/wallet-adapter-react-ui/styles.css");
-
 export function Providers({ children }: { children: ReactNode }) {
   const wallets = useMemo(() => [new PhantomWalletAdapter()], []);
   return (
