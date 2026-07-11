@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletButton, UsdcBalance } from "@/components/WalletButton";
 import { LotteryCard } from "@/components/LotteryCard";
 import { Hero } from "@/components/Hero";
 import { HowItWorks } from "@/components/HowItWorks";
+import { LotteryTabs, LotteryFilter } from "@/components/LotteryTabs";
 import { useLotteries, LotteryData } from "@/hooks/useLottery";
 import { formatUsdc, shortAddress, LOTTERY_TYPE_LABELS } from "@/lib/constants";
 import { Trophy, ExternalLink } from "lucide-react";
@@ -13,6 +15,7 @@ import Link from "next/link";
 export default function Home() {
   const { connected } = useWallet();
   const { lotteries, loading } = useLotteries();
+  const [filter, setFilter] = useState<LotteryFilter>("all");
 
   const activeLotteries = lotteries.filter(
     (l) => l.state === "open" || l.state === "created"
@@ -20,6 +23,20 @@ export default function Home() {
   const pastLotteries = lotteries.filter(
     (l) => l.state === "completed" || l.state === "cancelled" || l.state === "expired"
   );
+
+  // Type counts for tab badges
+  const typeCounts: Record<string, number> = {
+    all: activeLotteries.length,
+    daily: activeLotteries.filter((l) => l.lotteryType === "daily").length,
+    weekly: activeLotteries.filter((l) => l.lotteryType === "weekly").length,
+    monthly: activeLotteries.filter((l) => l.lotteryType === "monthly").length,
+  };
+
+  // Filtered + sorted by draw time (soonest first)
+  const filteredActive = (filter === "all"
+    ? activeLotteries
+    : activeLotteries.filter((l) => l.lotteryType === filter)
+  ).sort((a, b) => a.drawTime - b.drawTime);
 
   // Hero stats
   const totalPool = activeLotteries.reduce((sum, l) => sum + l.prizePool, 0);
@@ -74,14 +91,12 @@ export default function Home() {
 
       {/* Active Lotteries */}
       <section id="lotteries" className="mx-auto max-w-6xl px-6 py-12">
-        <div className="mb-6 flex items-baseline justify-between">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <h2 className="font-[var(--font-display)] text-lg font-semibold text-[var(--color-primary)]">
             Active Lotteries
           </h2>
           {activeLotteries.length > 0 && (
-            <span className="text-xs text-[var(--color-muted)]">
-              {activeLotteries.length} {activeLotteries.length === 1 ? "draw" : "draws"} open
-            </span>
+            <LotteryTabs active={filter} onChange={setFilter} counts={typeCounts} />
           )}
         </div>
 
@@ -91,14 +106,18 @@ export default function Home() {
               <div key={i} className="h-48 rounded-2xl shimmer" />
             ))}
           </div>
-        ) : activeLotteries.length === 0 ? (
+        ) : filteredActive.length === 0 ? (
           <div className="rounded-2xl border border-[var(--color-hairline)] bg-[var(--color-elevated)] py-20 text-center">
-            <p className="text-sm text-[var(--color-secondary)]">No active lotteries right now.</p>
-            <p className="mt-1 text-xs text-[var(--color-muted)]">Check back soon.</p>
+            <p className="text-sm text-[var(--color-secondary)]">
+              {filter === "all"
+                ? "No active lotteries right now."
+                : `No active ${filter} lottery at the moment.`}
+            </p>
+            <p className="mt-1 text-xs text-[var(--color-muted)]">The next round starts soon.</p>
           </div>
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {activeLotteries.map((lottery, i) => (
+            {filteredActive.map((lottery, i) => (
               <LotteryCard key={lottery.publicKey} lottery={lottery} index={i} />
             ))}
           </div>

@@ -39,6 +39,20 @@ export function LotteryCard({ lottery, index }: { lottery: LotteryData; index: n
   const isCompleted = lottery.state === "completed";
   const typeLabel = LOTTERY_TYPE_LABELS[lottery.lotteryType] || lottery.lotteryType;
 
+  // Type-specific accent colors
+  const TYPE_ACCENT: Record<string, string> = {
+    daily: "var(--color-green)",
+    weekly: "var(--color-purple)",
+    monthly: "var(--color-gold)",
+  };
+  const TYPE_BAR: Record<string, string> = {
+    daily: "bg-gradient-green",
+    weekly: "bg-[var(--color-purple)]",
+    monthly: "bg-gradient-gold",
+  };
+  const accentColor = TYPE_ACCENT[lottery.lotteryType] || "var(--color-green)";
+  const barClass = TYPE_BAR[lottery.lotteryType] || "bg-gradient-green";
+
   // Stagger entrance
   useEffect(() => {
     if (!cardRef.current) return;
@@ -90,7 +104,10 @@ export function LotteryCard({ lottery, index }: { lottery: LotteryData; index: n
     >
       {/* Header: type + status */}
       <div className="mb-5 flex items-center justify-between">
-        <span className="font-[var(--font-display)] text-xs font-semibold uppercase tracking-wider text-[var(--color-secondary)]">
+        <span
+          className="font-[var(--font-display)] text-xs font-semibold uppercase tracking-wider"
+          style={{ color: accentColor }}
+        >
           {typeLabel} Draw
         </span>
         <div className="flex items-center gap-1.5">
@@ -116,7 +133,7 @@ export function LotteryCard({ lottery, index }: { lottery: LotteryData; index: n
       <div className="mb-5 h-1 w-full overflow-hidden rounded-full bg-[var(--color-elevated-2)]">
         <div
           ref={barRef}
-          className="h-full rounded-full bg-gradient-green"
+          className={clsx("h-full rounded-full", barClass)}
           style={{ width: "0%" }}
         />
       </div>
