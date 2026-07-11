@@ -1,26 +1,180 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
+/* ─── Design tokens: dark gaming theme (forced, not prefers-color-scheme) ─── */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Backgrounds */
+  --color-base: #0B0D12;
+  --color-elevated: #13161D;
+  --color-elevated-2: #1B1F29;
+
+  /* Text */
+  --color-primary: #F5F7FA;
+  --color-secondary: #9BA3AF;
+  --color-muted: #5C6470;
+
+  /* Borders */
+  --color-hairline: rgba(255, 255, 255, 0.06);
+
+  /* Accents */
+  --color-gold: #FFB020;
+  --color-gold-dark: #FF8A00;
+  --color-green: #14F195;
+  --color-green-dark: #0FCC7A;
+  --color-danger: #FF5470;
+  --color-purple: #9945FF;
+
+  /* Fonts */
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-space-grotesk);
+  --font-mono: var(--font-jetbrains-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  color-scheme: dark;
 }
 
+/* ─── Base ─── */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-base);
+  color: var(--color-primary);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Tabular figures for all money displays — prevents jitter during GSAP count-up */
+.tabular {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-feature-settings: "tnum" 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-base);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-elevated-2);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted);
+}
+
+/* ─── Keyframe animations ─── */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.05); }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  33% { transform: translateY(-30px) translateX(20px); }
+  66% { transform: translateY(20px) translateX(-15px); }
+}
+
+/* ─── Utilities ─── */
+.text-gradient-gold {
+  background: linear-gradient(135deg, var(--color-gold), var(--color-gold-dark));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.bg-gradient-gold {
+  background: linear-gradient(135deg, var(--color-gold), var(--color-gold-dark));
+}
+
+.bg-gradient-green {
+  background: linear-gradient(135deg, var(--color-green), var(--color-green-dark));
+}
+
+.card-hover {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card-hover:hover {
+  transform: translateY(-4px);
+  background: var(--color-elevated-2);
+}
+
+/* Pulse-dot for live status indicators */
+.pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* Shimmer skeleton */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-elevated) 25%,
+    var(--color-elevated-2) 50%,
+    var(--color-elevated) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Ambient orb */
+.ambient-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.08;
+  pointer-events: none;
+}
+
+/* Focus visible — accessible outlines */
+*:focus-visible {
+  outline: 2px solid var(--color-green);
+  outline-offset: 2px;
+}
+
+/* Wallet adapter button override — match dark theme */
+.wallet-adapter-button {
+  background: var(--color-elevated-2) !important;
+  border-radius: 10px !important;
+  font-family: var(--font-sans) !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+  height: 38px !important;
+  padding: 0 16px !important;
+  border: 1px solid var(--color-hairline) !important;
+  color: var(--color-primary) !important;
+  transition: all 0.2s ease !important;
+}
+.wallet-adapter-button:hover {
+  background: var(--color-elevated) !important;
+  border-color: var(--color-green) !important;
+}
+.wallet-adapter-button-trigger {
+  background: var(--color-green) !important;
+  color: #000 !important;
+  border: none !important;
+}
+.wallet-adapter-button-trigger:hover {
+  background: var(--color-green-dark) !important;
+}
+.wallet-adapter-dropdown-list {
+  background: var(--color-elevated) !important;
+  border: 1px solid var(--color-hairline) !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
+}
+.wallet-adapter-dropdown-list-item {
+  color: var(--color-primary) !important;
+  font-family: var(--font-sans) !important;
 }

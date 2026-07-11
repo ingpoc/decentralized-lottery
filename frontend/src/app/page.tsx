@@ -3,7 +3,12 @@
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletButton, UsdcBalance } from "@/components/WalletButton";
 import { LotteryCard } from "@/components/LotteryCard";
-import { useLotteries } from "@/hooks/useLottery";
+import { Hero } from "@/components/Hero";
+import { HowItWorks } from "@/components/HowItWorks";
+import { useLotteries, LotteryData } from "@/hooks/useLottery";
+import { formatUsdc, shortAddress, LOTTERY_TYPE_LABELS } from "@/lib/constants";
+import { Trophy, ExternalLink } from "lucide-react";
+import Link from "next/link";
 
 export default function Home() {
   const { connected } = useWallet();
@@ -16,90 +21,157 @@ export default function Home() {
     (l) => l.state === "completed" || l.state === "cancelled" || l.state === "expired"
   );
 
+  // Hero stats
+  const totalPool = activeLotteries.reduce((sum, l) => sum + l.prizePool, 0);
+  const totalTickets = activeLotteries.reduce((sum, l) => sum + l.totalTickets, 0);
+
   return (
     <div className="flex-1">
       {/* Header */}
-      <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+      <header className="sticky top-0 z-50 border-b border-[var(--color-hairline)] bg-[var(--color-base)]/80 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">🎟️</span>
-            <div>
-              <h1 className="text-lg font-bold text-gray-900">Decentralized Lottery</h1>
-              <p className="text-xs text-gray-400">Solana · USDC · Provably Fair</p>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-gold">
+              <Trophy className="h-4 w-4 text-black" />
             </div>
+            <span className="font-[var(--font-display)] text-sm font-bold text-[var(--color-primary)]">
+              Lottery
+            </span>
           </div>
-          <div className="flex items-center gap-4">
+
+          <nav className="hidden items-center gap-1 sm:flex">
+            <Link
+              href="/"
+              className="rounded-lg px-3 py-1.5 text-xs font-medium text-[var(--color-secondary)] transition hover:text-[var(--color-primary)]"
+            >
+              Play
+            </Link>
+            <Link
+              href="/my-tickets"
+              className="rounded-lg px-3 py-1.5 text-xs font-medium text-[var(--color-secondary)] transition hover:text-[var(--color-primary)]"
+            >
+              My Tickets
+            </Link>
+            <a
+              href="https://github.com/ingpoc/decentralized-lottery"
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-lg px-3 py-1.5 text-xs font-medium text-[var(--color-secondary)] transition hover:text-[var(--color-primary)]"
+            >
+              GitHub
+            </a>
+          </nav>
+
+          <div className="flex items-center gap-3">
             {connected && <UsdcBalance />}
             <WalletButton />
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-6 py-8">
-        {/* Active Lotteries */}
-        <section>
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+      {/* Hero */}
+      <Hero totalPool={totalPool} activeCount={activeLotteries.length} totalPlayers={totalTickets} />
+
+      {/* Active Lotteries */}
+      <section id="lotteries" className="mx-auto max-w-6xl px-6 py-12">
+        <div className="mb-6 flex items-baseline justify-between">
+          <h2 className="font-[var(--font-display)] text-lg font-semibold text-[var(--color-primary)]">
             Active Lotteries
           </h2>
-          {loading ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-56 animate-pulse rounded-xl bg-gray-200" />
-              ))}
-            </div>
-          ) : activeLotteries.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-gray-300 bg-white py-16 text-center">
-              <p className="text-gray-400">No active lotteries right now.</p>
-              <p className="mt-1 text-xs text-gray-400">Check back soon or ask the admin to create one.</p>
-            </div>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {activeLotteries.map((lottery) => (
-                <LotteryCard key={lottery.publicKey} lottery={lottery} />
-              ))}
-            </div>
+          {activeLotteries.length > 0 && (
+            <span className="text-xs text-[var(--color-muted)]">
+              {activeLotteries.length} {activeLotteries.length === 1 ? "draw" : "draws"} open
+            </span>
           )}
-        </section>
+        </div>
 
-        {/* Past Lotteries */}
-        {pastLotteries.length > 0 && (
-          <section className="mt-10">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
-              Past Draws
-            </h2>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {pastLotteries.slice(0, 6).map((lottery) => (
-                <LotteryCard key={lottery.publicKey} lottery={lottery} />
-              ))}
-            </div>
-          </section>
+        {loading ? (
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-48 rounded-2xl shimmer" />
+            ))}
+          </div>
+        ) : activeLotteries.length === 0 ? (
+          <div className="rounded-2xl border border-[var(--color-hairline)] bg-[var(--color-elevated)] py-20 text-center">
+            <p className="text-sm text-[var(--color-secondary)]">No active lotteries right now.</p>
+            <p className="mt-1 text-xs text-[var(--color-muted)]">Check back soon.</p>
+          </div>
+        ) : (
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {activeLotteries.map((lottery, i) => (
+              <LotteryCard key={lottery.publicKey} lottery={lottery} index={i} />
+            ))}
+          </div>
         )}
+      </section>
 
-        {/* Info section */}
-        <section className="mt-12 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 p-8 text-white">
-          <h3 className="text-lg font-semibold">How it works</h3>
-          <div className="mt-4 grid gap-6 sm:grid-cols-3">
-            <div>
-              <p className="text-2xl">1️⃣</p>
-              <p className="mt-1 text-sm text-indigo-100">Connect your Phantom wallet on Solana devnet</p>
-            </div>
-            <div>
-              <p className="text-2xl">2️⃣</p>
-              <p className="mt-1 text-sm text-indigo-100">Buy tickets with USDC — every ticket is a chance to win</p>
-            </div>
-            <div>
-              <p className="text-2xl">3️⃣</p>
-              <p className="mt-1 text-sm text-indigo-100">Winner is selected on-chain via deterministic randomness</p>
-            </div>
+      {/* Past Draws — compact table (Tufte: minimal ink for history) */}
+      {pastLotteries.length > 0 && (
+        <section className="mx-auto max-w-6xl px-6 py-12">
+          <h2 className="mb-6 font-[var(--font-display)] text-lg font-semibold text-[var(--color-primary)]">
+            Past Draws
+          </h2>
+          <div className="overflow-hidden rounded-xl border border-[var(--color-hairline)]">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--color-hairline)] text-xs text-[var(--color-muted)]">
+                  <th className="px-4 py-3 text-left font-medium uppercase tracking-wider">Type</th>
+                  <th className="px-4 py-3 text-right font-medium uppercase tracking-wider">Pool</th>
+                  <th className="px-4 py-3 text-right font-medium uppercase tracking-wider">Tickets</th>
+                  <th className="px-4 py-3 text-right font-medium uppercase tracking-wider">Winner</th>
+                  <th className="px-4 py-3 text-right font-medium uppercase tracking-wider">State</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pastLotteries.slice(0, 10).map((lottery) => (
+                  <tr
+                    key={lottery.publicKey}
+                    className="border-b border-[var(--color-hairline)] last:border-0 transition hover:bg-[var(--color-elevated)]"
+                  >
+                    <td className="px-4 py-3 text-[var(--color-secondary)]">
+                      {LOTTERY_TYPE_LABELS[lottery.lotteryType] || lottery.lotteryType}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular text-[var(--color-primary)]">
+                      {formatUsdc(lottery.prizePool)}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular text-[var(--color-secondary)]">
+                      {lottery.totalTickets}
+                    </td>
+                    <td className="px-4 py-3 text-right font-[var(--font-mono)] text-xs text-[var(--color-muted)]">
+                      {lottery.winningTicket ? shortAddress(lottery.winningTicket, 4) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className="text-xs capitalize text-[var(--color-muted)]">
+                        {lottery.state}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </section>
-      </main>
+      )}
 
-      <footer className="border-t border-gray-200 py-6 text-center text-xs text-gray-400">
-        Decentralized Lottery · Solana Devnet ·{" "}
-        <a href="https://github.com/ingpoc/decentralized-lottery" target="_blank" rel="noreferrer" className="underline">
-          GitHub
-        </a>
+      {/* How It Works */}
+      <HowItWorks />
+
+      {/* Footer */}
+      <footer className="border-t border-[var(--color-hairline)] py-6 text-center">
+        <div className="flex items-center justify-center gap-2 text-xs text-[var(--color-muted)]">
+          <span>Decentralized Lottery</span>
+          <span>·</span>
+          <span>Solana Devnet</span>
+          <span>·</span>
+          <a
+            href="https://github.com/ingpoc/decentralized-lottery"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-[var(--color-secondary)] transition hover:text-[var(--color-primary)]"
+          >
+            GitHub <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
       </footer>
     </div>
   );
